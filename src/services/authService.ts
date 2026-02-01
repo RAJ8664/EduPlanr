@@ -18,14 +18,14 @@ import {
   linkWithCredential,
   EmailAuthProvider,
   UserCredential,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import { UserProfile, UserPreferences } from '@/types';
+} from "firebase/auth";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { UserProfile, UserPreferences } from "@/types";
 
 // Default preferences for new users
 const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'dark',
+  theme: "dark",
   defaultStudyDuration: 45,
   breakDuration: 10,
   dailyGoalHours: 4,
@@ -38,15 +38,15 @@ const DEFAULT_PREFERENCES: UserPreferences = {
  */
 async function createUserProfile(user: User): Promise<UserProfile> {
   if (!db) {
-    throw new Error('Firebase not initialized');
+    throw new Error("Firebase not initialized");
   }
 
-  const userRef = doc(db, 'users', user.uid);
+  const userRef = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
     // Create new user profile
-    const newProfile: Omit<UserProfile, 'createdAt' | 'updatedAt'> = {
+    const newProfile: Omit<UserProfile, "createdAt" | "updatedAt"> = {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName,
@@ -80,11 +80,11 @@ async function createUserProfile(user: User): Promise<UserProfile> {
  * Sign in with Google OAuth
  */
 export async function signInWithGoogle(): Promise<UserProfile> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   const provider = new GoogleAuthProvider();
-  provider.addScope('email');
-  provider.addScope('profile');
+  provider.addScope("email");
+  provider.addScope("profile");
 
   const result = await signInWithPopup(auth, provider);
   return createUserProfile(result.user);
@@ -95,9 +95,9 @@ export async function signInWithGoogle(): Promise<UserProfile> {
  */
 export async function signInWithEmail(
   email: string,
-  password: string
+  password: string,
 ): Promise<UserProfile> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   const result = await signInWithEmailAndPassword(auth, email, password);
   return createUserProfile(result.user);
@@ -109,12 +109,12 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   email: string,
   password: string,
-  displayName?: string
+  displayName?: string,
 ): Promise<UserProfile> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   const result = await createUserWithEmailAndPassword(auth, email, password);
-  
+
   // Update display name if provided
   if (displayName) {
     await updateProfile(result.user, { displayName });
@@ -127,7 +127,7 @@ export async function signUpWithEmail(
  * Sign in anonymously for quick access without account
  */
 export async function signInAnonymouslyUser(): Promise<UserProfile> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   const result = await signInAnonymously(auth);
   return createUserProfile(result.user);
@@ -138,13 +138,13 @@ export async function signInAnonymouslyUser(): Promise<UserProfile> {
  */
 export async function convertAnonymousAccount(
   email: string,
-  password: string
+  password: string,
 ): Promise<UserCredential> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   const currentUser = auth.currentUser;
   if (!currentUser || !currentUser.isAnonymous) {
-    throw new Error('No anonymous user to convert');
+    throw new Error("No anonymous user to convert");
   }
 
   const credential = EmailAuthProvider.credential(email, password);
@@ -155,7 +155,7 @@ export async function convertAnonymousAccount(
  * Send password reset email
  */
 export async function resetPassword(email: string): Promise<void> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   await sendPasswordResetEmail(auth, email);
 }
@@ -164,7 +164,7 @@ export async function resetPassword(email: string): Promise<void> {
  * Sign out current user
  */
 export async function signOut(): Promise<void> {
-  if (!auth) throw new Error('Firebase not initialized');
+  if (!auth) throw new Error("Firebase not initialized");
 
   await firebaseSignOut(auth);
 }
@@ -173,7 +173,7 @@ export async function signOut(): Promise<void> {
  * Subscribe to authentication state changes
  */
 export function subscribeToAuthChanges(
-  callback: (user: User | null) => void
+  callback: (user: User | null) => void,
 ): () => void {
   if (!auth) {
     // Return no-op function if Firebase not initialized
@@ -202,29 +202,35 @@ export function isAnonymousUser(): boolean {
 /**
  * Update user display name
  */
-export async function updateUserDisplayName(displayName: string): Promise<void> {
-  if (!auth) throw new Error('Firebase not initialized');
+export async function updateUserDisplayName(
+  displayName: string,
+): Promise<void> {
+  if (!auth) throw new Error("Firebase not initialized");
 
   const user = auth.currentUser;
-  if (!user) throw new Error('No authenticated user');
-  if (!db) throw new Error('Firebase not initialized');
+  if (!user) throw new Error("No authenticated user");
+  if (!db) throw new Error("Firebase not initialized");
 
   await updateProfile(user, { displayName });
-  
+
   // Update Firestore profile
-  const userRef = doc(db, 'users', user.uid);
-  await setDoc(userRef, { displayName, updatedAt: serverTimestamp() }, { merge: true });
+  const userRef = doc(db, "users", user.uid);
+  await setDoc(
+    userRef,
+    { displayName, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 /**
  * Get user profile from Firestore
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  if (!db) throw new Error('Firebase not initialized');
+  if (!db) throw new Error("Firebase not initialized");
 
-  const userRef = doc(db, 'users', uid);
+  const userRef = doc(db, "users", uid);
   const userSnap = await getDoc(userRef);
-  
+
   if (!userSnap.exists()) return null;
 
   const data = userSnap.data();
@@ -240,17 +246,67 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
  */
 export async function updateUserPreferences(
   uid: string,
-  preferences: Partial<UserPreferences>
+  preferences: Partial<UserPreferences>,
 ): Promise<void> {
-  if (!db) throw new Error('Firebase not initialized');
+  if (!db) throw new Error("Firebase not initialized");
 
-  const userRef = doc(db, 'users', uid);
+  const userRef = doc(db, "users", uid);
   await setDoc(
     userRef,
-    { 
+    {
       preferences,
-      updatedAt: serverTimestamp() 
+      updatedAt: serverTimestamp(),
     },
-    { merge: true }
+    { merge: true },
+  );
+}
+
+/* Compress image and convert to Base64 */
+export function compressImage(
+  file: File,
+  maxWidth = 500,
+  quality = 0.7,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (maxWidth * height) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
+/* Update profile picture in Firestore (Base64) */
+export async function updateProfilePicture(
+  base64Image: string,
+  uid: string,
+): Promise<void> {
+  if (!db) throw new Error("Firebase not initialized");
+
+  const userRef = doc(db, "users", uid);
+  await setDoc(
+    userRef,
+    { photoURL: base64Image, updatedAt: serverTimestamp() },
+    { merge: true },
   );
 }

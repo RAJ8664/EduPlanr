@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -28,6 +28,8 @@ import { useAuthStore } from '@/store';
 import {
   updateUserDisplayName,
   updateUserPreferences,
+  compressImage,
+  updateProfilePicture,
   signOut,
 } from '@/services/authService';
 import { deleteUser } from 'firebase/auth';
@@ -79,6 +81,8 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('profile');
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form states initialized with profile data
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
@@ -181,19 +185,71 @@ export default function SettingsPage() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid) return;
+
+    // check if file is an image or not
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // check file size (e.g., max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const base64Image = await compressImage(file);
+      await updateProfilePicture(base64Image, user.uid);
+      if (profile) {
+        useAuthStore.getState().setProfile({ ...profile, photoURL: base64Image });
+      }
+      toast.success('Profile picture updated!');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      toast.error('Failed to update profile picture');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const renderSectionContent = () => {
     switch (activeSection) {
       case 'profile':
         return (
           <div className="space-y-6">
             {/* Avatar */}
+
             <div className="flex items-center gap-4">
-              <Avatar name={displayName || user?.email || 'User'} size="xl" />
+              <Avatar
+                name={displayName || user?.email || 'User'}
+                src={profile?.photoURL || user?.photoURL}
+                size="xl"
+              />
               <div>
-                <Button variant="secondary" size="sm" disabled>
-                  Change Photo
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? 'Uploading...' : 'Change Photo'}
                 </Button>
-                <p className="text-xs text-gray-500 mt-1">Managed automatically</p>
+                <p className="text-xs text-gray-500 mt-1">Recommended: Square image, max 5MB</p>
               </div>
             </div>
 
