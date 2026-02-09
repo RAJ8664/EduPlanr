@@ -20,6 +20,8 @@ import { Subject, SubjectStatus } from '@/types';
 
 const COLLECTION_NAME = 'subjects';
 
+console.log('subjectsService loaded. DB available:', !!db);
+
 /**
  * Create a new subject
  */

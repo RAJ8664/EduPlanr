@@ -115,17 +115,19 @@ export default function SubjectsPage() {
 
             // Fetch subjects
             const userSubjects = await getUserSubjects(user.uid);
+            console.log('Fetched subjects:', userSubjects.length, userSubjects);
             setSubjects(userSubjects);
 
             // Fetch syllabi for all subjects
             const userSyllabi = await getUserSyllabi(user.uid);
+            console.log('Fetched syllabi:', userSyllabi.length);
             const syllabiMap: Record<string, { topics: SyllabusTopic[]; id: string }> = {};
             userSyllabi.forEach(s => {
                 syllabiMap[s.subjectId] = { topics: s.topics || [], id: s.id };
             });
             setSyllabi(syllabiMap);
         } catch (error) {
-            console.error('Error fetching data:', error);
+            console.error('Error fetching data in fetchData:', error);
             toast.error('Failed to load subjects');
         } finally {
             setLoading(false);
