@@ -75,11 +75,13 @@ export async function getSubject(subjectId: string): Promise<Subject | null> {
     if (!docSnap.exists()) return null;
 
     const data = docSnap.data();
+    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
+
     return {
         id: docSnap.id,
         ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
+        createdAt: safeToDate(data.createdAt),
+        updatedAt: safeToDate(data.updatedAt),
     } as Subject;
 }
 
@@ -98,11 +100,12 @@ export async function getUserSubjects(userId: string): Promise<Subject[]> {
 
     const subjects = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
+        const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
         return {
             id: docSnap.id,
             ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
+            createdAt: safeToDate(data.createdAt),
+            updatedAt: safeToDate(data.updatedAt),
         } as Subject;
     });
 

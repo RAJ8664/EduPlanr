@@ -177,20 +177,27 @@ export default function SubjectsPage() {
             const newSubject = await createSubject(user.uid, newSubjectData);
             console.log('Subject created:', newSubject);
 
-            // Create empty syllabus for the subject
-            const syllabus = await createSyllabus(user.uid, {
-                subjectId: newSubject.id,
-                title: `${newSubjectName} Syllabus`,
-                description: 'Course syllabus and topics',
-                topics: [],
-                startDate: new Date(),
-                endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 4 months
-                totalTopics: 0,
-                completedTopics: 0,
-            });
+            try {
+                // Create empty syllabus for the subject
+                console.log('Creating syllabus for subject:', newSubject.id);
+                const syllabus = await createSyllabus(user.uid, {
+                    subjectId: newSubject.id,
+                    title: `${newSubjectName} Syllabus`,
+                    description: 'Course syllabus and topics',
+                    topics: [],
+                    startDate: new Date(),
+                    endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 4 months
+                    totalTopics: 0,
+                    completedTopics: 0,
+                });
+                console.log('Syllabus created:', syllabus);
+                setSyllabi(prev => ({ ...prev, [newSubject.id]: { topics: [], id: syllabus.id } }));
+            } catch (syllabusError) {
+                console.error('Error creating syllabus, but subject was created:', syllabusError);
+                toast.error('Subject created, but failed to initialize syllabus');
+            }
 
             addSubjectToStore(newSubject);
-            setSyllabi(prev => ({ ...prev, [newSubject.id]: { topics: [], id: syllabus.id } }));
 
             // Reset form
             setNewSubjectName('');

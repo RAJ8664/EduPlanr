@@ -61,13 +61,15 @@ export async function getSemester(semesterId: string): Promise<Semester | null> 
     if (!docSnap.exists()) return null;
 
     const data = docSnap.data();
+    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
+
     return {
         id: docSnap.id,
         ...data,
-        startDate: data.startDate?.toDate(),
-        endDate: data.endDate?.toDate(),
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
+        startDate: data.startDate ? safeToDate(data.startDate) : undefined,
+        endDate: data.endDate ? safeToDate(data.endDate) : undefined,
+        createdAt: safeToDate(data.createdAt),
+        updatedAt: safeToDate(data.updatedAt),
     } as Semester;
 }
 
@@ -86,13 +88,14 @@ export async function getUserSemesters(userId: string): Promise<Semester[]> {
 
     const semesters = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
+        const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
         return {
             id: docSnap.id,
             ...data,
-            startDate: data.startDate?.toDate(),
-            endDate: data.endDate?.toDate(),
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
+            startDate: data.startDate ? safeToDate(data.startDate) : undefined,
+            endDate: data.endDate ? safeToDate(data.endDate) : undefined,
+            createdAt: safeToDate(data.createdAt),
+            updatedAt: safeToDate(data.updatedAt),
         } as Semester;
     });
 

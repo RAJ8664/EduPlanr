@@ -73,13 +73,15 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
   if (!docSnap.exists()) return null;
 
   const data = docSnap.data();
+  const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
+
   return {
     id: docSnap.id,
     ...data,
-    startDate: data.startDate?.toDate() || new Date(),
-    endDate: data.endDate?.toDate() || new Date(),
-    createdAt: data.createdAt?.toDate() || new Date(),
-    updatedAt: data.updatedAt?.toDate() || new Date(),
+    startDate: safeToDate(data.startDate),
+    endDate: safeToDate(data.endDate),
+    createdAt: safeToDate(data.createdAt),
+    updatedAt: safeToDate(data.updatedAt),
     topics: data.topics?.map((topic: SyllabusTopic) => ({
       ...topic,
       completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
@@ -102,13 +104,14 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
 
   const syllabi = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
+    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
     return {
       id: docSnap.id,
       ...data,
-      startDate: data.startDate?.toDate() || new Date(),
-      endDate: data.endDate?.toDate() || new Date(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
+      startDate: safeToDate(data.startDate),
+      endDate: safeToDate(data.endDate),
+      createdAt: safeToDate(data.createdAt),
+      updatedAt: safeToDate(data.updatedAt),
       topics: data.topics?.map((topic: SyllabusTopic) => ({
         ...topic,
         completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
