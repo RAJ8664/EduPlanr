@@ -4,7 +4,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require('pdf-parse');
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
+    console.log('Received POST request to /api/ai/process-document');
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -112,4 +116,8 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
+}
+
+export async function GET() {
+    return NextResponse.json({ message: 'API route is working' });
 }

@@ -2,12 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  
+
   // Ignore ESLint warnings during build
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   // Image optimization
   images: {
     unoptimized: true,
@@ -18,6 +18,9 @@ const nextConfig = {
   env: {
     APP_NAME: 'EduPlanr',
     APP_VERSION: '1.0.0',
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['pdf-parse'],
   },
 };
 

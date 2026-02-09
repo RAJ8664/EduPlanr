@@ -30,10 +30,19 @@ export async function processDocument(
             body: formData,
         });
 
-        const result = await response.json();
+        const textResponse = await response.text();
+        let result;
+        try {
+            result = JSON.parse(textResponse);
+        } catch {
+            // If parsing fails, use text for error logging
+            result = { error: 'Invalid JSON response', raw: textResponse };
+        }
 
         if (!response.ok) {
-            throw new Error(result.error || 'Failed to process document');
+            console.error('API Error:', response.status, response.statusText);
+            console.error('API Response Text:', textResponse);
+            throw new Error(result.error || `Failed to process document: ${response.status}`);
         }
 
         return result.data;
