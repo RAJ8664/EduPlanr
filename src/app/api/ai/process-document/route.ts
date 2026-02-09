@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Use gemini-3-flash-preview as requested
-        const model = genAI.getGenerativeModel({ model: 'gemini-3.0-flash-preview' });
+        // Use gemini-3-flash-preview (corrected ID)
+        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
         let prompt = '';
         if (type === 'subject') {
