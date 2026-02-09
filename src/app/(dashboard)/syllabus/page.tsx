@@ -32,6 +32,8 @@ import {
   calculateProgress,
 } from '@/services/syllabusService';
 import { getUserSubjects } from '@/services/subjectsService';
+import { processDocument } from '@/services/aiService';
+import { ArrowPathIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 export default function SyllabusPage() {
   const { user } = useAuthStore();
@@ -50,6 +52,14 @@ export default function SyllabusPage() {
   const [addingTopicFor, setAddingTopicFor] = useState<string | null>(null);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicHours, setNewTopicHours] = useState('2');
+
+  // AI Processing state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiText, setAiText] = useState('');
+  const [showAiInput, setShowAiInput] = useState(false);
+  const [generatedTopics, setGeneratedTopics] = useState<Partial<SyllabusTopic>[]>([]);
+
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -135,10 +145,10 @@ export default function SyllabusPage() {
         subjectId: newCourseSubjectId,
         title: newCourseTitle.trim(),
         description: newCourseDescription.trim(),
-        topics: [],
+        topics: generatedTopics.length > 0 ? generatedTopics as any[] : [],
         startDate: new Date(),
         endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 4 months
-        totalTopics: 0,
+        totalTopics: generatedTopics.length,
         completedTopics: 0,
       });
 
@@ -148,6 +158,10 @@ export default function SyllabusPage() {
       setNewCourseTitle('');
       setNewCourseDescription('');
       setNewCourseSubjectId('');
+      setGeneratedTopics([]);
+      setAiFile(null);
+      setAiText('');
+      setShowAiInput(false);
       setIsAddModalOpen(false);
       toast.success('Course added successfully!');
     } catch (error) {
@@ -527,6 +541,134 @@ export default function SyllabusPage() {
         description="Create a new syllabus to track your progress"
       >
         <div className="space-y-4">
+
+          {/* AI Auto-fill Section */}
+          <div className="bg-dark-800/50 rounded-xl p-4 border border-dark-600/50">
+            <button
+              onClick={() => setShowAiInput(!showAiInput)}
+              className="flex items-center gap-2 text-sm font-medium text-neon-purple hover:text-neon-purple/80 transition-colors w-full"
+            >
+              <span className="flex items-center gap-2">
+                ✨ Generate from Syllabus (PDF/Text)
+              </span>
+              <ChevronRightIcon className={cn("w-4 h-4 transition-transform", showAiInput ? "rotate-90" : "")} />
+            </button>
+
+            <AnimatePresence>
+              {showAiInput && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-4 space-y-3">
+                    <p className="text-xs text-gray-400">
+                      Upload a syllabus PDF or paste text to generate topics automatically.
+                    </p>
+
+                    <input
+                      type="file"
+                      accept=".pdf,.txt"
+                      onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-400
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded-full file:border-0
+                                    file:text-sm file:font-semibold
+                                    file:bg-neon-purple/10 file:text-neon-purple
+                                    hover:file:bg-neon-purple/20
+                                    cursor-pointer"
+                    />
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-dark-600"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="px-2 bg-dark-800 text-gray-500">OR</span>
+                      </div>
+                    </div>
+
+                    <textarea
+                      placeholder="Paste syllabus content here..."
+                      value={aiText}
+                      onChange={(e) => setAiText(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-dark-900/50 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-neon-purple resize-none"
+                      rows={3}
+                    />
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-neon-purple/30 text-neon-purple hover:bg-neon-purple/10"
+                      disabled={(!aiFile && !aiText) || isProcessing}
+                      onClick={async () => {
+                        if (!aiFile && !aiText) return;
+                        setIsProcessing(true);
+                        try {
+                          const data = await processDocument('syllabus', aiFile, aiText);
+                          if (data && data.topics && Array.isArray(data.topics)) {
+                            const topics = data.topics.map((t: any, index: number) => ({
+                              ...t,
+                              status: 'not-started',
+                              priority: 'medium',
+                              isCompleted: false,
+                              order: index
+                            }));
+                            setGeneratedTopics(topics);
+                            toast.success(`Generated ${topics.length} topics! Review them below.`);
+                            setShowAiInput(false);
+                          }
+                        } catch (error) {
+                          console.error(error);
+                          toast.error('Failed to process document');
+                        } finally {
+                          setIsProcessing(false);
+                        }
+                      }}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <DocumentTextIcon className="w-4 h-4 mr-2" />
+                          Generate Topics
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Generated Topics Preview */}
+            {generatedTopics.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm font-medium text-neon-green flex items-center gap-2">
+                  <CheckCircleIcon className="w-4 h-4" />
+                  {generatedTopics.length} Topics Generated
+                </p>
+                <div className="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  {generatedTopics.map((topic, idx) => (
+                    <div key={idx} className="bg-dark-900/50 p-2 rounded-lg text-xs border border-dark-600/30">
+                      <p className="font-medium text-gray-200">{topic.title}</p>
+                      <p className="text-gray-500 line-clamp-1">{topic.description}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setGeneratedTopics([])}
+                  className="text-xs text-red-400 hover:text-red-300 underline"
+                >
+                  Clear topics
+                </button>
+              </div>
+            )}
+          </div>
+
           <Input
             label="Course Title"
             placeholder="e.g., Advanced Mathematics"

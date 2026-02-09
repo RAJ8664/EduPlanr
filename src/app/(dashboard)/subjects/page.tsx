@@ -12,20 +12,14 @@ import {
     PlusIcon,
     AcademicCapIcon,
     ChevronRightIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    ClockIcon,
-    BookOpenIcon,
     TrashIcon,
-    PencilIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { Subject, Semester, SubjectStatus, SyllabusTopic } from '@/types';
+import { Subject, SubjectStatus, SyllabusTopic } from '@/types';
 import { useAuthStore, useSubjectsStore } from '@/store';
 import {
-    getUserSemesters,
     initializeUserSemesters,
 } from '@/services/semestersService';
 import {
@@ -42,6 +36,8 @@ import {
     addTopic,
     deleteTopic,
 } from '@/services/syllabusService';
+import { processDocument } from '@/services/aiService';
+import { ArrowPathIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 // Color options for subjects
 const SUBJECT_COLORS = [
@@ -89,12 +85,18 @@ export default function SubjectsPage() {
     const [newSubjectCredits, setNewSubjectCredits] = useState('');
 
     // Edit states
-    const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    // const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+    // const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     // Topic states
     const [newTopicTitle, setNewTopicTitle] = useState('');
     const [addingTopicForSubject, setAddingTopicForSubject] = useState<string | null>(null);
+
+    // AI Processing state
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [aiFile, setAiFile] = useState<File | null>(null);
+    const [aiText, setAiText] = useState('');
+    const [showAiInput, setShowAiInput] = useState(false);
 
     // Fetch data on mount
     const fetchData = useCallback(async () => {
@@ -664,6 +666,105 @@ export default function SubjectsPage() {
                 description="Add a new subject to your semester"
             >
                 <div className="space-y-4">
+                    {/* AI Auto-fill Section */}
+                    <div className="bg-dark-800/50 rounded-xl p-4 border border-dark-600/50">
+                        <button
+                            onClick={() => setShowAiInput(!showAiInput)}
+                            className="flex items-center gap-2 text-sm font-medium text-neon-cyan hover:text-neon-cyan/80 transition-colors w-full"
+                        >
+                            <span className="flex items-center gap-2">
+                                ✨ Auto-fill details with AI
+                            </span>
+                            <ChevronRightIcon className={cn("w-4 h-4 transition-transform", showAiInput ? "rotate-90" : "")} />
+                        </button>
+
+                        <AnimatePresence>
+                            {showAiInput && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="pt-4 space-y-3">
+                                        <p className="text-xs text-gray-400">
+                                            Upload a course outline (PDF) or paste the text to auto-fill details.
+                                        </p>
+
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.txt"
+                                            onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                                            className="block w-full text-sm text-gray-400
+                                                file:mr-4 file:py-2 file:px-4
+                                                file:rounded-full file:border-0
+                                                file:text-sm file:font-semibold
+                                                file:bg-neon-cyan/10 file:text-neon-cyan
+                                                hover:file:bg-neon-cyan/20
+                                                cursor-pointer"
+                                        />
+
+                                        <div className="relative">
+                                            <div className="absolute inset-0 flex items-center">
+                                                <div className="w-full border-t border-dark-600"></div>
+                                            </div>
+                                            <div className="relative flex justify-center text-xs">
+                                                <span className="px-2 bg-dark-800 text-gray-500">OR</span>
+                                            </div>
+                                        </div>
+
+                                        <textarea
+                                            placeholder="Paste course description here..."
+                                            value={aiText}
+                                            onChange={(e) => setAiText(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm bg-dark-900/50 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-neon-cyan resize-none"
+                                            rows={3}
+                                        />
+
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="w-full border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10"
+                                            disabled={(!aiFile && !aiText) || isProcessing}
+                                            onClick={async () => {
+                                                if (!aiFile && !aiText) return;
+                                                setIsProcessing(true);
+                                                try {
+                                                    const data = await processDocument('subject', aiFile, aiText);
+                                                    if (data) {
+                                                        if (data.name) setNewSubjectName(data.name);
+                                                        if (data.description) setNewSubjectDescription(data.description);
+                                                        if (data.creditHours) setNewSubjectCredits(data.creditHours.toString());
+                                                        if (data.color) setNewSubjectColor(data.color);
+                                                        toast.success('Auto-filled subject details!');
+                                                        setShowAiInput(false);
+                                                    }
+                                                } catch (error) {
+                                                    console.error(error);
+                                                    toast.error('Failed to process document');
+                                                } finally {
+                                                    setIsProcessing(false);
+                                                }
+                                            }}
+                                        >
+                                            {isProcessing ? (
+                                                <>
+                                                    <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <DocumentTextIcon className="w-4 h-4 mr-2" />
+                                                    Auto-fill
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
                     <Input
                         label="Subject Name"
                         placeholder="e.g., Advanced Mathematics"
