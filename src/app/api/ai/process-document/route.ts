@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-    console.log('Received POST request to /api/ai/process-document');
+    console.log(`[AI API] ${request.method} request received`);
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -119,5 +119,16 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-    return NextResponse.json({ message: 'API route is working' });
+    return NextResponse.json({ message: 'API route is working' }, { status: 200 });
+}
+
+export async function OPTIONS(request: NextRequest) {
+    return new NextResponse(null, {
+        status: 200,
+        headers: {
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Origin': '*',
+        },
+    });
 }
