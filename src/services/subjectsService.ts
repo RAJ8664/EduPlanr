@@ -40,17 +40,25 @@ export async function createSubject(
         updatedAt: serverTimestamp(),
     };
 
-    const docRef = await addDoc(subjectRef, docData);
+    console.log('Creating subject for user:', userId, 'with data:', docData);
 
-    return {
-        id: docRef.id,
-        ...subject,
-        userId,
-        status: subject.status || 'ongoing',
-        progress: subject.progress || 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    };
+    try {
+        const docRef = await addDoc(subjectRef, docData);
+        console.log('Subject created with ID:', docRef.id);
+
+        return {
+            id: docRef.id,
+            ...subject,
+            userId,
+            status: subject.status || 'ongoing',
+            progress: subject.progress || 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+    } catch (error) {
+        console.error('Error creating subject in Firestore:', error);
+        throw error;
+    }
 }
 
 /**

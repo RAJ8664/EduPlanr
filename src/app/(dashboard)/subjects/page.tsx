@@ -151,22 +151,29 @@ export default function SubjectsPage() {
 
     // Handle add subject
     const handleAddSubject = async () => {
+        console.log('handleAddSubject called. User:', user?.uid, 'Semester:', selectedSemesterId, 'Name:', newSubjectName);
+
         if (!user?.uid || !selectedSemesterId || !newSubjectName.trim()) {
+            console.error('Missing invalid data for creating subject');
             toast.error('Please fill in all required fields');
             return;
         }
 
         try {
-            const newSubject = await createSubject(user.uid, {
+            const newSubjectData = {
                 semesterId: selectedSemesterId,
                 name: newSubjectName.trim(),
                 description: newSubjectDescription.trim(),
                 color: newSubjectColor,
                 icon: '📚',
-                status: 'ongoing',
+                status: 'ongoing' as SubjectStatus,
                 creditHours: newSubjectCredits ? parseInt(newSubjectCredits) : 0,
                 progress: 0,
-            });
+            };
+            console.log('Calling createSubject with:', newSubjectData);
+
+            const newSubject = await createSubject(user.uid, newSubjectData);
+            console.log('Subject created:', newSubject);
 
             // Create empty syllabus for the subject
             const syllabus = await createSyllabus(user.uid, {
