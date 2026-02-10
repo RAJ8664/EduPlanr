@@ -22,6 +22,8 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['pdf-parse'],
   },
+  // Conditional static export for mobile builds
+  output: process.env.NEXT_PUBLIC_EXPORT === 'true' ? 'export' : undefined,
 };
 
 module.exports = nextConfig;

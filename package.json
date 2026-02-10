@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "export": "NEXT_PUBLIC_EXPORT=true next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest --passWithNoTests",
