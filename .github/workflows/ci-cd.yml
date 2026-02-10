@@ -1,11 +1,13 @@
 # EduPlanr CI/CD Pipeline
-# Builds, tests, and deploys the application
+# Builds, tests, and creates releases for the application
 
 name: CI/CD Pipeline
 
 on:
   push:
     branches: [main, develop]
+    tags:
+      - 'v*'
   pull_request:
     branches: [main]
 
@@ -72,7 +74,7 @@ jobs:
           fail_ci_if_error: false
 
   # =============================================================================
-  # BUILD WEB APPLICATION
+  # BUILD WEB APPLICATION (CI Check)
   # =============================================================================
   build-web:
     name: Build Web Application
@@ -95,7 +97,7 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          # Firebase config (use GitHub Secrets in production)
+          # Used for build validation
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
@@ -118,6 +120,7 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     needs: build-web
+    # Run on pushes to main OR tags
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     
     steps:
@@ -143,7 +146,8 @@ jobs:
         run: npm ci
 
       - name: Build web application (Static Export)
-        run: npm run export || echo "Static export skipped due to errors. Android build may be incomplete."
+        # We allow failure because API routes prevent static export, but basic assets might be needed
+        run: npm run export || echo "Static export skipped/failed. Check if 'out' directory exists."
         continue-on-error: true
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
@@ -175,53 +179,12 @@ jobs:
         continue-on-error: true
 
   # =============================================================================
-  # DEPLOY TO FIREBASE HOSTING (Alternative deployment)
-  # =============================================================================
-  deploy-firebase:
-    name: Deploy to Firebase
-    runs-on: ubuntu-latest
-    needs: build-web
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build static export
-        run: npm run export || echo "Static export skipped due to errors."
-        continue-on-error: true
-        env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        continue-on-error: true
-
-  # =============================================================================
   # RELEASE (Create GitHub release on tags)
   # =============================================================================
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-web, build-android]
+    needs: [build-android]
     if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
@@ -250,11 +213,11 @@ jobs:
   notify:
     name: Notify Status
     runs-on: ubuntu-latest
-    needs: [deploy-firebase]
+    needs: [build-web]
     if: always()
     
     steps:
       - name: Send notification
         run: |
-          echo "CI/CD Pipeline completed!"
-          echo "Firebase deployment: ${{ needs.deploy-firebase.result }}"
+          echo "CI Pipeline completed!"
+          echo "Web build: ${{ needs.build-web.result }}"
