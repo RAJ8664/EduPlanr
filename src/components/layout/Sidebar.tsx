@@ -20,6 +20,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   SparklesIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store';
@@ -37,6 +38,7 @@ const navigation: NavItem[] = [
   { name: 'Materials', href: '/materials', icon: DocumentTextIcon },
   { name: 'Syllabus', href: '/syllabus', icon: BookOpenIcon },
   { name: 'Subjects', href: '/subjects', icon: AcademicCapIcon },
+  { name: 'Routine', href: '/routine', icon: ClockIcon },
   { name: 'Smart Tutor', href: '/tutor', icon: SparklesIcon },
 ];
 
@@ -83,7 +85,7 @@ export function Sidebar() {
       <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          
+
           return (
             <Link
               key={item.name}
@@ -146,7 +148,7 @@ export function Sidebar() {
       <div className="py-4 px-3 border-t border-dark-700/50">
         {bottomNavigation.map((item) => {
           const isActive = pathname === item.href;
-          
+
           return (
             <Link
               key={item.name}

@@ -67,16 +67,20 @@ export async function POST(request: NextRequest) {
         let prompt = '';
         if (type === 'subject') {
             prompt = `
-        Analyze the following text and extract Subject information.
-        Return ONLY a JSON object with the following fields:
+        Analyze the following text and extract ALL subjects/courses mentioned.
+        Return ONLY a JSON object with a "subjects" field containing an array of subject objects.
+        Each subject object should have:
         - name: (string) The name of the subject/course
         - description: (string) A brief description (max 200 chars)
-        - creditHours: (number) Creating hours if mentioned, default to 3
-        - color: (string) A suggested hex color code for this subject
+        - creditHours: (number) Credit hours if mentioned, default to 3
+        - color: (string) A suggested unique hex color code for this subject (make each subject a different color)
         - icon: (string) A suggested single emoji icon for this subject
 
+        If the text mentions only one subject, still return it inside the subjects array.
+        If the text is just a subject name or a short list, infer reasonable descriptions and details.
+
         Text to analyze:
-        ${extractedText.slice(0, 15000)} // Limit context window
+        ${extractedText.slice(0, 25000)}
       `;
         } else if (type === 'syllabus') {
             prompt = `

@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -97,6 +97,21 @@ export default function SubjectsPage() {
     const [aiFile, setAiFile] = useState<File | null>(null);
     const [aiText, setAiText] = useState('');
     const [showAiInput, setShowAiInput] = useState(false);
+
+    // Multi-subject AI extraction state
+    interface ExtractedSubject {
+        name: string;
+        description: string;
+        creditHours: number;
+        color: string;
+        icon: string;
+        selected: boolean;
+    }
+    const [aiExtractedSubjects, setAiExtractedSubjects] = useState<ExtractedSubject[]>([]);
+    const [modalMode, setModalMode] = useState<'ai' | 'preview' | 'manual'>('ai');
+    const [isBatchCreating, setIsBatchCreating] = useState(false);
+
+    const selectedCount = useMemo(() => aiExtractedSubjects.filter(s => s.selected).length, [aiExtractedSubjects]);
 
     // Fetch data on mount
     const fetchData = useCallback(async () => {
@@ -677,166 +692,363 @@ export default function SubjectsPage() {
             {/* Add Subject Modal */}
             <Modal
                 isOpen={isAddSubjectModalOpen}
-                onClose={() => setIsAddSubjectModalOpen(false)}
-                title="Add Subject"
-                description="Add a new subject to your semester"
+                onClose={() => {
+                    setIsAddSubjectModalOpen(false);
+                    setModalMode('ai');
+                    setAiExtractedSubjects([]);
+                    setAiFile(null);
+                    setAiText('');
+                    setShowAiInput(false);
+                }}
+                title={modalMode === 'preview' ? `Extracted Subjects (${aiExtractedSubjects.length})` : 'Add Subject'}
+                description={modalMode === 'preview' ? 'Select the subjects you want to add' : 'Add subjects using AI or manually'}
             >
                 <div className="space-y-4">
-                    {/* AI Auto-fill Section */}
-                    <div className="bg-dark-800/50 rounded-xl p-4 border border-dark-600/50">
-                        <button
-                            onClick={() => setShowAiInput(!showAiInput)}
-                            className="flex items-center gap-2 text-sm font-medium text-neon-cyan hover:text-neon-cyan/80 transition-colors w-full"
+                    {/* Mode Tabs */}
+                    {modalMode !== 'preview' && (
+                        <div className="flex gap-2 bg-dark-800/50 rounded-xl p-1">
+                            <button
+                                onClick={() => setModalMode('ai')}
+                                className={cn(
+                                    'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                                    modalMode === 'ai'
+                                        ? 'bg-neon-cyan/20 text-neon-cyan'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                ✨ AI Extract
+                            </button>
+                            <button
+                                onClick={() => setModalMode('manual')}
+                                className={cn(
+                                    'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                                    modalMode === 'manual'
+                                        ? 'bg-neon-cyan/20 text-neon-cyan'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                ✏️ Manual Add
+                            </button>
+                        </div>
+                    )}
+
+                    {/* AI Mode - Input */}
+                    {modalMode === 'ai' && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="space-y-3"
                         >
-                            <span className="flex items-center gap-2">
-                                ✨ Auto-fill details with AI
-                            </span>
-                            <ChevronRightIcon className={cn("w-4 h-4 transition-transform", showAiInput ? "rotate-90" : "")} />
-                        </button>
+                            <p className="text-xs text-gray-400">
+                                Upload a course outline (PDF) or paste text to extract multiple subjects at once.
+                            </p>
 
-                        <AnimatePresence>
-                            {showAiInput && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
+                            <input
+                                type="file"
+                                accept=".pdf,.txt"
+                                onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                                className="block w-full text-sm text-gray-400
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded-full file:border-0
+                                    file:text-sm file:font-semibold
+                                    file:bg-neon-cyan/10 file:text-neon-cyan
+                                    hover:file:bg-neon-cyan/20
+                                    cursor-pointer"
+                            />
+
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-dark-600"></div>
+                                </div>
+                                <div className="relative flex justify-center text-xs">
+                                    <span className="px-2 bg-dark-900 text-gray-500">OR</span>
+                                </div>
+                            </div>
+
+                            <textarea
+                                placeholder="Paste subject names, course outline, or curriculum text...\n\ne.g., Computer Networks, Operating Systems, DBMS, Software Engineering"
+                                value={aiText}
+                                onChange={(e) => setAiText(e.target.value)}
+                                className="w-full px-3 py-2 text-sm bg-dark-900/50 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-neon-cyan resize-none"
+                                rows={4}
+                            />
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10"
+                                disabled={(!aiFile && !aiText) || isProcessing}
+                                onClick={async () => {
+                                    if (!aiFile && !aiText) return;
+                                    setIsProcessing(true);
+                                    try {
+                                        const data = await processDocument('subject', aiFile, aiText);
+                                        if (data && data.subjects && Array.isArray(data.subjects)) {
+                                            const extracted = data.subjects.map((s: any) => ({
+                                                name: s.name || 'Untitled',
+                                                description: s.description || '',
+                                                creditHours: s.creditHours || 3,
+                                                color: s.color || SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)].value,
+                                                icon: s.icon || '📚',
+                                                selected: true,
+                                            }));
+                                            setAiExtractedSubjects(extracted);
+                                            setModalMode('preview');
+                                            toast.success(`Found ${extracted.length} subject${extracted.length !== 1 ? 's' : ''}!`);
+                                        } else {
+                                            toast.error('No subjects found in the text');
+                                        }
+                                    } catch (error) {
+                                        console.error(error);
+                                        toast.error('Failed to process document');
+                                    } finally {
+                                        setIsProcessing(false);
+                                    }
+                                }}
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                                        Extracting subjects...
+                                    </>
+                                ) : (
+                                    <>
+                                        <DocumentTextIcon className="w-4 h-4 mr-2" />
+                                        Extract Subjects
+                                    </>
+                                )}
+                            </Button>
+                        </motion.div>
+                    )}
+
+                    {/* AI Mode - Preview extracted subjects */}
+                    {modalMode === 'preview' && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="space-y-3"
+                        >
+                            {/* Select all / Deselect all */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                    {selectedCount} of {aiExtractedSubjects.length} selected
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        const allSelected = aiExtractedSubjects.every(s => s.selected);
+                                        setAiExtractedSubjects(prev =>
+                                            prev.map(s => ({ ...s, selected: !allSelected }))
+                                        );
+                                    }}
+                                    className="text-xs text-neon-cyan hover:text-neon-cyan/80 transition-colors"
                                 >
-                                    <div className="pt-4 space-y-3">
-                                        <p className="text-xs text-gray-400">
-                                            Upload a course outline (PDF) or paste the text to auto-fill details.
-                                        </p>
+                                    {aiExtractedSubjects.every(s => s.selected) ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
 
-                                        <input
-                                            type="file"
-                                            accept=".pdf,.txt"
-                                            onChange={(e) => setAiFile(e.target.files?.[0] || null)}
-                                            className="block w-full text-sm text-gray-400
-                                                file:mr-4 file:py-2 file:px-4
-                                                file:rounded-full file:border-0
-                                                file:text-sm file:font-semibold
-                                                file:bg-neon-cyan/10 file:text-neon-cyan
-                                                hover:file:bg-neon-cyan/20
-                                                cursor-pointer"
-                                        />
-
-                                        <div className="relative">
-                                            <div className="absolute inset-0 flex items-center">
-                                                <div className="w-full border-t border-dark-600"></div>
-                                            </div>
-                                            <div className="relative flex justify-center text-xs">
-                                                <span className="px-2 bg-dark-800 text-gray-500">OR</span>
-                                            </div>
+                            {/* Subject list */}
+                            <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
+                                {aiExtractedSubjects.map((subject, index) => (
+                                    <motion.div
+                                        key={index}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        className={cn(
+                                            'flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer',
+                                            subject.selected
+                                                ? 'bg-dark-700/50 border-neon-cyan/30'
+                                                : 'bg-dark-800/30 border-dark-600/30 opacity-50'
+                                        )}
+                                        onClick={() => {
+                                            setAiExtractedSubjects(prev =>
+                                                prev.map((s, i) => i === index ? { ...s, selected: !s.selected } : s)
+                                            );
+                                        }}
+                                    >
+                                        {/* Checkbox */}
+                                        <div className="pt-0.5">
+                                            {subject.selected ? (
+                                                <CheckCircleSolidIcon className="w-5 h-5 text-neon-cyan" />
+                                            ) : (
+                                                <div className="w-5 h-5 rounded-full border-2 border-gray-500" />
+                                            )}
                                         </div>
 
-                                        <textarea
-                                            placeholder="Paste course description here..."
-                                            value={aiText}
-                                            onChange={(e) => setAiText(e.target.value)}
-                                            className="w-full px-3 py-2 text-sm bg-dark-900/50 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-neon-cyan resize-none"
-                                            rows={3}
-                                        />
-
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="w-full border-neon-cyan/30 text-neon-cyan hover:bg-neon-cyan/10"
-                                            disabled={(!aiFile && !aiText) || isProcessing}
-                                            onClick={async () => {
-                                                if (!aiFile && !aiText) return;
-                                                setIsProcessing(true);
-                                                try {
-                                                    const data = await processDocument('subject', aiFile, aiText);
-                                                    if (data) {
-                                                        if (data.name) setNewSubjectName(data.name);
-                                                        if (data.description) setNewSubjectDescription(data.description);
-                                                        if (data.creditHours) setNewSubjectCredits(data.creditHours.toString());
-                                                        if (data.color) setNewSubjectColor(data.color);
-                                                        toast.success('Auto-filled subject details!');
-                                                        setShowAiInput(false);
-                                                    }
-                                                } catch (error) {
-                                                    console.error(error);
-                                                    toast.error('Failed to process document');
-                                                } finally {
-                                                    setIsProcessing(false);
-                                                }
-                                            }}
-                                        >
-                                            {isProcessing ? (
-                                                <>
-                                                    <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                                                    Processing...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <DocumentTextIcon className="w-4 h-4 mr-2" />
-                                                    Auto-fill
-                                                </>
+                                        {/* Subject info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                                    style={{ backgroundColor: subject.color }}
+                                                />
+                                                <span className="text-lg">{subject.icon}</span>
+                                                <h4 className="font-medium text-white text-sm truncate">{subject.name}</h4>
+                                            </div>
+                                            {subject.description && (
+                                                <p className="text-xs text-gray-400 mt-1 line-clamp-2">{subject.description}</p>
                                             )}
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
+                                            <span className="text-xs text-gray-500 mt-1 inline-block">
+                                                {subject.creditHours} credit hours
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
 
-                    <Input
-                        label="Subject Name"
-                        placeholder="e.g., Advanced Mathematics"
-                        value={newSubjectName}
-                        onChange={(e) => setNewSubjectName(e.target.value)}
-                    />
+                            {/* Action buttons */}
+                            <div className="flex gap-3 pt-2">
+                                <Button
+                                    variant="secondary"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        setModalMode('ai');
+                                        setAiExtractedSubjects([]);
+                                    }}
+                                >
+                                    ← Back
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="flex-1"
+                                    disabled={selectedCount === 0 || isBatchCreating}
+                                    onClick={async () => {
+                                        if (!user?.uid || !selectedSemesterId) return;
+                                        setIsBatchCreating(true);
+                                        const selected = aiExtractedSubjects.filter(s => s.selected);
+                                        let created = 0;
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                            Description
-                        </label>
-                        <textarea
-                            placeholder="Brief description of the subject..."
-                            value={newSubjectDescription}
-                            onChange={(e) => setNewSubjectDescription(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 transition-all resize-none"
-                            rows={2}
-                        />
-                    </div>
+                                        try {
+                                            for (const subjectData of selected) {
+                                                try {
+                                                    const newSubject = await createSubject(user.uid, {
+                                                        semesterId: selectedSemesterId,
+                                                        name: subjectData.name,
+                                                        description: subjectData.description,
+                                                        color: subjectData.color,
+                                                        icon: subjectData.icon || '📚',
+                                                        status: 'ongoing' as SubjectStatus,
+                                                        creditHours: subjectData.creditHours,
+                                                        progress: 0,
+                                                    });
 
-                    <Input
-                        label="Credit Hours"
-                        type="number"
-                        placeholder="e.g., 3"
-                        value={newSubjectCredits}
-                        onChange={(e) => setNewSubjectCredits(e.target.value)}
-                    />
+                                                    addSubjectToStore(newSubject);
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                            Color
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {SUBJECT_COLORS.map((color) => (
-                                <button
-                                    key={color.value}
-                                    onClick={() => setNewSubjectColor(color.value)}
-                                    className={cn(
-                                        'w-8 h-8 rounded-full border-2 transition-all',
-                                        newSubjectColor === color.value ? 'border-white scale-110' : 'border-transparent'
+                                                    // Create empty syllabus
+                                                    try {
+                                                        const syllabus = await createSyllabus(user.uid, {
+                                                            subjectId: newSubject.id,
+                                                            title: `${subjectData.name} Syllabus`,
+                                                            description: 'Course syllabus and topics',
+                                                            topics: [],
+                                                            startDate: new Date(),
+                                                            endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
+                                                            totalTopics: 0,
+                                                            completedTopics: 0,
+                                                        });
+                                                        setSyllabi(prev => ({ ...prev, [newSubject.id]: { topics: [], id: syllabus.id } }));
+                                                    } catch (e) {
+                                                        console.error('Error creating syllabus for', subjectData.name, e);
+                                                    }
+
+                                                    created++;
+                                                } catch (e) {
+                                                    console.error('Error creating subject', subjectData.name, e);
+                                                }
+                                            }
+
+                                            toast.success(`Added ${created} subject${created !== 1 ? 's' : ''} successfully!`);
+                                            setIsAddSubjectModalOpen(false);
+                                            setModalMode('ai');
+                                            setAiExtractedSubjects([]);
+                                            setAiFile(null);
+                                            setAiText('');
+                                        } catch (error) {
+                                            console.error('Batch create error:', error);
+                                            toast.error('Failed to add subjects');
+                                        } finally {
+                                            setIsBatchCreating(false);
+                                        }
+                                    }}
+                                >
+                                    {isBatchCreating ? (
+                                        <>
+                                            <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                                            Adding...
+                                        </>
+                                    ) : (
+                                        `Add ${selectedCount} Subject${selectedCount !== 1 ? 's' : ''}`
                                     )}
-                                    style={{ backgroundColor: color.value }}
-                                    title={color.name}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
 
-                    <div className="flex justify-end gap-3 pt-2">
-                        <Button variant="secondary" onClick={() => setIsAddSubjectModalOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button variant="primary" onClick={handleAddSubject}>
-                            Add Subject
-                        </Button>
-                    </div>
+                    {/* Manual Mode - Single subject form */}
+                    {modalMode === 'manual' && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="space-y-4"
+                        >
+                            <Input
+                                label="Subject Name"
+                                placeholder="e.g., Advanced Mathematics"
+                                value={newSubjectName}
+                                onChange={(e) => setNewSubjectName(e.target.value)}
+                            />
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    Description
+                                </label>
+                                <textarea
+                                    placeholder="Brief description of the subject..."
+                                    value={newSubjectDescription}
+                                    onChange={(e) => setNewSubjectDescription(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 transition-all resize-none"
+                                    rows={2}
+                                />
+                            </div>
+
+                            <Input
+                                label="Credit Hours"
+                                type="number"
+                                placeholder="e.g., 3"
+                                value={newSubjectCredits}
+                                onChange={(e) => setNewSubjectCredits(e.target.value)}
+                            />
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                                    Color
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {SUBJECT_COLORS.map((color) => (
+                                        <button
+                                            key={color.value}
+                                            onClick={() => setNewSubjectColor(color.value)}
+                                            className={cn(
+                                                'w-8 h-8 rounded-full border-2 transition-all',
+                                                newSubjectColor === color.value ? 'border-white scale-110' : 'border-transparent'
+                                            )}
+                                            style={{ backgroundColor: color.value }}
+                                            title={color.name}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <Button variant="secondary" onClick={() => setIsAddSubjectModalOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button variant="primary" onClick={handleAddSubject}>
+                                    Add Subject
+                                </Button>
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
             </Modal>
         </div>

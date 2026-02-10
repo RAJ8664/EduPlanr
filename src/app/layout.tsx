@@ -8,6 +8,7 @@ import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://eduplanr.app'),
   title: {
     default: 'EduPlanr - Smart Study Planner',
     template: '%s | EduPlanr',
@@ -63,7 +64,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="antialiased">
         {children}
-        
+
         {/* Toast notifications */}
         <Toaster
           position="bottom-right"

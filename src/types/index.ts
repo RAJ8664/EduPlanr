@@ -233,3 +233,21 @@ export interface SortOptions {
   field: string;
   direction: 'asc' | 'desc';
 }
+
+// Routine block for daily schedule
+export type RoutineCategory = 'study' | 'break' | 'exercise' | 'personal' | 'sleep';
+
+export interface RoutineBlock {
+  id: string;
+  userId: string;
+  title: string;
+  category: RoutineCategory;
+  startTime: string; // HH:mm format
+  endTime: string;   // HH:mm format
+  color: string;
+  icon: string;
+  isActive: boolean;
+  daysOfWeek: number[]; // 0=Sun, 1=Mon, ... 6=Sat
+  createdAt: Date;
+  updatedAt: Date;
+}
