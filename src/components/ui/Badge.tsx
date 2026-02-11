@@ -6,7 +6,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-type BadgeVariant = 'default' | 'neon' | 'purple' | 'green' | 'yellow' | 'red' | 'outline';
+type BadgeVariant = 'default' | 'neon' | 'purple' | 'green' | 'yellow' | 'red' | 'outline' | 'blue' | 'orange';
 type BadgeSize = 'sm' | 'md' | 'lg';
 
 interface BadgeProps {
@@ -25,6 +25,8 @@ const variantStyles: Record<BadgeVariant, string> = {
   yellow: 'bg-neon-yellow/10 text-neon-yellow border-neon-yellow/30',
   red: 'bg-red-500/10 text-red-400 border-red-500/30',
   outline: 'bg-transparent text-gray-300 border-dark-500',
+  blue: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  orange: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
 };
 
 const sizeStyles: Record<BadgeSize, string> = {
@@ -59,7 +61,9 @@ export function Badge({
             variant === 'yellow' && 'bg-neon-yellow',
             variant === 'red' && 'bg-red-400',
             variant === 'default' && 'bg-gray-400',
-            variant === 'outline' && 'bg-gray-400'
+            variant === 'outline' && 'bg-gray-400',
+            variant === 'blue' && 'bg-blue-400',
+            variant === 'orange' && 'bg-orange-400'
           )}
         />
       )}
@@ -85,7 +89,7 @@ const priorityConfig = {
 
 export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
   const config = priorityConfig[priority];
-  
+
   return (
     <Badge variant={config.variant} size="sm" dot className={className}>
       {config.label}
@@ -112,7 +116,7 @@ const statusConfig = {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = statusConfig[status];
-  
+
   return (
     <Badge variant={config.variant} size="sm" dot className={className}>
       {config.label}

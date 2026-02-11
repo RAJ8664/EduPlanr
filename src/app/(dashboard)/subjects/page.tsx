@@ -56,6 +56,9 @@ const STATUS_STYLES: Record<SubjectStatus, { bg: string; text: string; label: st
     ongoing: { bg: 'bg-neon-yellow/20', text: 'text-neon-yellow', label: 'Ongoing' },
     passed: { bg: 'bg-neon-green/20', text: 'text-neon-green', label: 'Passed' },
     failed: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Failed' },
+    withdrawn: { bg: 'bg-gray-500/20', text: 'text-gray-400', label: 'Withdrawn' },
+    incomplete: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'Incomplete' },
+    audit: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'Audit' },
 };
 
 export default function SubjectsPage() {
@@ -95,8 +98,7 @@ export default function SubjectsPage() {
     // AI Processing state
     const [isProcessing, setIsProcessing] = useState(false);
     const [aiFile, setAiFile] = useState<File | null>(null);
-    const [aiText, setAiText] = useState('');
-    const [showAiInput, setShowAiInput] = useState(false);
+
 
     // Multi-subject AI extraction state
     interface ExtractedSubject {
@@ -232,7 +234,11 @@ export default function SubjectsPage() {
     const handleStatusChange = async (subject: Subject, newStatus: SubjectStatus) => {
         try {
             await updateSubjectStatus(subject.id, newStatus);
-            updateSubjectInStore(subject.id, { status: newStatus, cgpa: newStatus === 'passed' ? subject.cgpa : null });
+            // If passed, keep existing CGPA (or init to 0 if null). 
+            // If failed/withdrawn, CGPA is effectively 0 but stored as null usually unless we want to track it.
+            // Service handles nulling CGPA for non-passed statuses except we might want to allow 0 for failed.
+            // For now, simple update.
+            updateSubjectInStore(subject.id, { status: newStatus });
             toast.success(`Status updated to ${STATUS_STYLES[newStatus].label}`);
         } catch (error) {
             console.error('Error updating status:', error);
@@ -526,7 +532,13 @@ export default function SubjectsPage() {
                                                                             <div className="flex items-center gap-2">
                                                                                 <h4 className="font-semibold text-white">{subject.name}</h4>
                                                                                 <Badge
-                                                                                    variant={subject.status === 'passed' ? 'green' : subject.status === 'failed' ? 'red' : 'yellow'}
+                                                                                    variant={
+                                                                                        subject.status === 'passed' ? 'green' :
+                                                                                            subject.status === 'failed' ? 'red' :
+                                                                                                subject.status === 'withdrawn' ? 'default' : // Gray equivalent
+                                                                                                    subject.status === 'incomplete' ? 'yellow' : // Orange-ish
+                                                                                                        subject.status === 'audit' ? 'blue' : 'yellow'
+                                                                                    }
                                                                                     size="sm"
                                                                                 >
                                                                                     {STATUS_STYLES[subject.status].label}
@@ -554,20 +566,26 @@ export default function SubjectsPage() {
                                                                                 <option value="ongoing">Ongoing</option>
                                                                                 <option value="passed">Passed</option>
                                                                                 <option value="failed">Failed</option>
+                                                                                <option value="withdrawn">Withdrawn</option>
+                                                                                <option value="incomplete">Incomplete</option>
+                                                                                <option value="audit">Audit</option>
                                                                             </select>
 
                                                                             {/* CGPA Input (only for passed) */}
                                                                             {subject.status === 'passed' && (
-                                                                                <input
-                                                                                    type="number"
-                                                                                    min="0"
-                                                                                    max="10"
-                                                                                    step="0.01"
-                                                                                    value={subject.cgpa || ''}
-                                                                                    onChange={(e) => handleCgpaChange(subject, parseFloat(e.target.value))}
-                                                                                    placeholder="CGPA"
-                                                                                    className="w-20 px-2 py-1 text-sm bg-dark-800 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-neon-green"
-                                                                                />
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="text-xs text-gray-400">Grade Pts:</span>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="0"
+                                                                                        max="10"
+                                                                                        step="0.01"
+                                                                                        value={subject.cgpa || ''}
+                                                                                        onChange={(e) => handleCgpaChange(subject, parseFloat(e.target.value))}
+                                                                                        placeholder="0-10"
+                                                                                        className="w-16 px-2 py-1 text-sm bg-dark-800 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-neon-green"
+                                                                                    />
+                                                                                </div>
                                                                             )}
 
                                                                             {/* Delete Button */}
@@ -698,7 +716,7 @@ export default function SubjectsPage() {
                     setAiExtractedSubjects([]);
                     setAiFile(null);
                     setAiText('');
-                    setShowAiInput(false);
+                    setAiText('');
                 }}
                 title={modalMode === 'preview' ? `Extracted Subjects (${aiExtractedSubjects.length})` : 'Add Subject'}
                 description={modalMode === 'preview' ? 'Select the subjects you want to add' : 'Add subjects using AI or manually'}

@@ -17,10 +17,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Subject, SubjectStatus } from '@/types';
+import { calculateCGPA, CourseResult } from '@/lib/gradingUtils';
 
 const COLLECTION_NAME = 'subjects';
 
-console.log('subjectsService loaded. DB available:', !!db);
+// console.log('subjectsService loaded. DB available:', !!db);
 
 /**
  * Create a new subject
@@ -42,11 +43,11 @@ export async function createSubject(
         updatedAt: serverTimestamp(),
     };
 
-    console.log('Creating subject for user:', userId, 'with data:', docData);
+    // console.log('Creating subject for user:', userId, 'with data:', docData);
 
     try {
         const docRef = await addDoc(subjectRef, docData);
-        console.log('Subject created with ID:', docRef.id);
+        // console.log('Subject created with ID:', docRef.id);
 
         return {
             id: docRef.id,
@@ -233,16 +234,27 @@ export async function getSubjectStats(userId: string): Promise<{
     const passed = subjects.filter(s => s.status === 'passed').length;
     const failed = subjects.filter(s => s.status === 'failed').length;
 
-    const passedSubjects = subjects.filter(s => s.status === 'passed' && s.cgpa !== undefined);
-    const averageCgpa = passedSubjects.length > 0
-        ? passedSubjects.reduce((sum, s) => sum + (s.cgpa || 0), 0) / passedSubjects.length
-        : 0;
+    // Helper to determine inclusion in GPA
+    const isGPAApplicable = (status: SubjectStatus) => {
+        return ['passed', 'failed', 'withdrawn'].includes(status);
+    };
+
+    // Calculate Average CGPA properly
+    const coursesForGPA: CourseResult[] = subjects.map(s => ({
+        id: s.id || s.name, // Use ID if available, else name for grouping repeats
+        credits: s.creditHours || 0,
+        gradePoints: s.status === 'withdrawn' ? 0 : (s.cgpa || 0), // Withdrawn = 0 points
+        includeInGPA: isGPAApplicable(s.status) && (s.creditHours || 0) > 0,
+        grade: s.status === 'withdrawn' ? 'W' : undefined // Optional
+    }));
+
+    const averageCgpa = calculateCGPA(coursesForGPA);
 
     return {
         total: subjects.length,
         ongoing,
         passed,
         failed,
-        averageCgpa: Math.round(averageCgpa * 100) / 100,
+        averageCgpa,
     };
 }

@@ -44,7 +44,7 @@ export interface StudyMaterial {
 export type MaterialType = 'note' | 'link' | 'document' | 'flashcard';
 
 // Subject status for tracking
-export type SubjectStatus = 'ongoing' | 'passed' | 'failed';
+export type SubjectStatus = 'ongoing' | 'passed' | 'failed' | 'withdrawn' | 'incomplete' | 'audit';
 
 // Semester for organizing subjects (1-8)
 export interface Semester {
