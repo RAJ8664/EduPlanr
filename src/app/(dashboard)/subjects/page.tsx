@@ -98,6 +98,7 @@ export default function SubjectsPage() {
     // AI Processing state
     const [isProcessing, setIsProcessing] = useState(false);
     const [aiFile, setAiFile] = useState<File | null>(null);
+    const [aiText, setAiText] = useState('');
 
 
     // Multi-subject AI extraction state
