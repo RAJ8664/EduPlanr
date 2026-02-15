@@ -58,7 +58,7 @@ export default function SyllabusPage() {
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiText, setAiText] = useState('');
   const [showAiInput, setShowAiInput] = useState(false);
-  const [generatedTopics, setGeneratedTopics] = useState<Partial<SyllabusTopic>[]>([]);
+  const [generatedTopics, setGeneratedTopics] = useState<SyllabusTopic[]>([]);
 
 
   // Fetch data
@@ -145,7 +145,7 @@ export default function SyllabusPage() {
         subjectId: newCourseSubjectId,
         title: newCourseTitle.trim(),
         description: newCourseDescription.trim(),
-        topics: generatedTopics.length > 0 ? generatedTopics as any[] : [],
+        topics: generatedTopics,
         startDate: new Date(),
         endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 4 months
         totalTopics: generatedTopics.length,
@@ -608,13 +608,34 @@ export default function SyllabusPage() {
                         try {
                           const data = await processDocument('syllabus', aiFile, aiText);
                           if (data && data.topics && Array.isArray(data.topics)) {
-                            const topics = data.topics.map((t: any, index: number) => ({
-                              ...t,
-                              status: 'not-started',
-                              priority: 'medium',
-                              isCompleted: false,
-                              order: index
-                            }));
+                            const topics = data.topics.map((topic, index) => {
+                              const parsed = topic && typeof topic === 'object'
+                                ? (topic as Record<string, unknown>)
+                                : {};
+
+                              const priorityValue = parsed.priority;
+                              const priority =
+                                priorityValue === 'low' ||
+                                priorityValue === 'medium' ||
+                                priorityValue === 'high' ||
+                                priorityValue === 'critical'
+                                  ? priorityValue
+                                  : 'medium';
+
+                              return {
+                                id: typeof parsed.id === 'string' ? parsed.id : '',
+                                syllabusId: '',
+                                title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title : `Topic ${index + 1}`,
+                                description: typeof parsed.description === 'string' ? parsed.description : '',
+                                estimatedHours: typeof parsed.estimatedHours === 'number' ? parsed.estimatedHours : 2,
+                                priority,
+                                status: 'not-started',
+                                completedAt: null,
+                                order: index,
+                                isCompleted: false,
+                                notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+                              } satisfies SyllabusTopic;
+                            });
                             setGeneratedTopics(topics);
                             toast.success(`Generated ${topics.length} topics! Review them below.`);
                             setShowAiInput(false);

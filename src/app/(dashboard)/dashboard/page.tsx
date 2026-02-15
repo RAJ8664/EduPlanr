@@ -8,10 +8,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  CalendarDaysIcon,
   ClockIcon,
   BookOpenIcon,
   AcademicCapIcon,
@@ -19,13 +19,12 @@ import {
   PlusIcon,
   PlayIcon,
   SparklesIcon,
-  ArrowTrendingUpIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, Button, ProgressBar, CircularProgress, Badge } from '@/components/ui';
-import { useAuthStore, useChatStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { useTimer } from '@/hooks';
-import { formatTimer, formatDuration, getGreeting } from '@/lib/utils';
+import { formatTimer, getGreeting } from '@/lib/utils';
 import { getUserSubjects, getSubjectStats } from '@/services/subjectsService';
 import { getUserSyllabi, calculateProgress } from '@/services/syllabusService';
 import { Subject, Syllabus } from '@/types';
@@ -43,8 +42,8 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, profile } = useAuthStore();
-  const { openChat } = useChatStore();
   const timer = useTimer();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -156,7 +155,7 @@ export default function DashboardPage() {
           <Button
             variant="secondary"
             leftIcon={<SparklesIcon className="w-5 h-5" />}
-            onClick={openChat}
+            onClick={() => router.push('/tutor')}
           >
             Ask AI Tutor
           </Button>

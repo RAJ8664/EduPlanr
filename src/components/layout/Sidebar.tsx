@@ -15,7 +15,6 @@ import {
   BookOpenIcon,
   AcademicCapIcon,
   DocumentTextIcon,
-  ChatBubbleLeftRightIcon,
   Cog6ToothIcon,
   ChevronLeftIcon,
   ChevronRightIcon,

@@ -19,9 +19,18 @@ export interface UserPreferences {
   timezone?: string;
   defaultStudyDuration: number; // minutes
   breakDuration: number; // minutes
+  longBreakDuration?: number; // minutes
+  sessionsBeforeLongBreak?: number;
+  autoStartBreaks?: boolean;
   dailyGoalHours: number;
   notifications: boolean;
+  emailReminders?: boolean;
+  sessionReminders?: boolean;
+  weeklyReports?: boolean;
+  achievements?: boolean;
   soundEnabled: boolean;
+  accentColor?: 'cyan' | 'purple' | 'pink' | 'green';
+  compactMode?: boolean;
 }
 
 // Study material (notes, links, documents)

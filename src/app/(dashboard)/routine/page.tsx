@@ -16,7 +16,7 @@ import {
     PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import { Card, Button, Input, Modal } from '@/components/ui';
+import { Button, Input, Modal } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { RoutineBlock, RoutineCategory } from '@/types';
 import { useAuthStore } from '@/store';

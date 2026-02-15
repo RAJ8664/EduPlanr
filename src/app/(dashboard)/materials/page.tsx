@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -18,7 +19,6 @@ import {
   ListBulletIcon,
   HeartIcon,
   TrashIcon,
-  PencilIcon,
   ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
@@ -42,6 +42,7 @@ const materialTypeConfig: Record<MaterialType, { icon: React.ElementType; color:
 };
 
 export default function MaterialsPage() {
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -81,6 +82,13 @@ export default function MaterialsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const queryFromUrl = searchParams.get('q');
+    if (queryFromUrl !== null) {
+      setSearchQuery(queryFromUrl);
+    }
+  }, [searchParams]);
 
   // Filter materials
   const filteredMaterials = materials.filter((material) => {

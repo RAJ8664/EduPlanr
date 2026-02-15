@@ -16,10 +16,19 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { safeParseDate } from '@/lib/utils';
 import { Syllabus, SyllabusTopic, TopicStatus } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const COLLECTION_NAME = 'syllabi';
+
+function safeToDate(value: unknown): Date {
+  return safeParseDate(value) || new Date();
+}
+
+function safeToDateOrNull(value: unknown): Date | null {
+  return safeParseDate(value);
+}
 
 /**
  * Create a new syllabus
@@ -73,29 +82,6 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
   if (!docSnap.exists()) return null;
 
   const data = docSnap.data();
-  const safeToDate = (ts: any): Date => {
-    if (!ts) return new Date();
-    if (typeof ts.toDate === 'function') {
-      try { return ts.toDate(); } catch { return new Date(); }
-    }
-    if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-      return new Date(ts.seconds * 1000);
-    }
-    const d = new Date(ts);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
-  const safeToDateOrNull = (ts: any): Date | null => {
-    if (!ts) return null;
-    if (typeof ts.toDate === 'function') {
-      try { return ts.toDate(); } catch { return null; }
-    }
-    if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-      return new Date(ts.seconds * 1000);
-    }
-    const d = new Date(ts);
-    return isNaN(d.getTime()) ? null : d;
-  };
 
   return {
     id: docSnap.id,
@@ -126,28 +112,6 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
 
   const syllabi = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
-    const safeToDate = (ts: any): Date => {
-      if (!ts) return new Date();
-      if (typeof ts.toDate === 'function') {
-        try { return ts.toDate(); } catch { return new Date(); }
-      }
-      if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-        return new Date(ts.seconds * 1000);
-      }
-      const d = new Date(ts);
-      return isNaN(d.getTime()) ? new Date() : d;
-    };
-    const safeToDateOrNull = (ts: any): Date | null => {
-      if (!ts) return null;
-      if (typeof ts.toDate === 'function') {
-        try { return ts.toDate(); } catch { return null; }
-      }
-      if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-        return new Date(ts.seconds * 1000);
-      }
-      const d = new Date(ts);
-      return isNaN(d.getTime()) ? null : d;
-    };
     return {
       id: docSnap.id,
       ...data,
@@ -184,17 +148,6 @@ export async function getSyllabiBySubject(
   const syllabi = snapshot.docs
     .map((docSnap) => {
       const data = docSnap.data();
-      const safeToDate = (ts: any): Date => {
-        if (!ts) return new Date();
-        if (typeof ts.toDate === 'function') {
-          try { return ts.toDate(); } catch { return new Date(); }
-        }
-        if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-          return new Date(ts.seconds * 1000);
-        }
-        const d = new Date(ts);
-        return isNaN(d.getTime()) ? new Date() : d;
-      };
       return {
         id: docSnap.id,
         ...data,

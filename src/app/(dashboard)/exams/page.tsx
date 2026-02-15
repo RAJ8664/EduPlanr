@@ -21,7 +21,7 @@ import {
     PencilIcon,
     CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
+import { Card, Button, Input, Badge, Modal } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { ExamRoutine, Exam } from '@/types';
 import { useAuthStore } from '@/store';
@@ -40,6 +40,39 @@ const EXAM_COLORS = [
     '#6366f1', '#ec4899', '#8b5cf6', '#14b8a6', '#f59e0b',
     '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f97316',
 ];
+
+interface ExtractedExam {
+    subjectName: string;
+    subjectColor: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    venue: string;
+    notes: string;
+    selected: boolean;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function toStringOrFallback(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function toExtractedExam(value: unknown, index: number): ExtractedExam {
+    const exam = toRecord(value);
+    return {
+        subjectName: toStringOrFallback(exam.subjectName, 'Unknown Subject'),
+        subjectColor: toStringOrFallback(exam.subjectColor, EXAM_COLORS[index % EXAM_COLORS.length]),
+        date: toStringOrFallback(exam.date, ''),
+        startTime: toStringOrFallback(exam.startTime, '09:00'),
+        endTime: toStringOrFallback(exam.endTime, '12:00'),
+        venue: toStringOrFallback(exam.venue, ''),
+        notes: toStringOrFallback(exam.notes, ''),
+        selected: true,
+    };
+}
 
 function createExamId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -96,7 +129,7 @@ export default function ExamsPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [aiFile, setAiFile] = useState<File | null>(null);
     const [aiText, setAiText] = useState('');
-    const [extractedExams, setExtractedExams] = useState<Partial<Exam>[]>([]);
+    const [extractedExams, setExtractedExams] = useState<ExtractedExam[]>([]);
     const [editingExamIndex, setEditingExamIndex] = useState<number | null>(null);
 
     // Manual add exam states
@@ -153,17 +186,8 @@ export default function ExamsPage() {
         setIsProcessing(true);
         try {
             const data = await processDocument('exam-routine', aiFile, aiText);
-            if (data && data.exams && Array.isArray(data.exams)) {
-                const exams = data.exams.map((e: any, index: number) => ({
-                    subjectName: e.subjectName || 'Unknown Subject',
-                    subjectColor: EXAM_COLORS[index % EXAM_COLORS.length],
-                    date: e.date || '',
-                    startTime: e.startTime || '09:00',
-                    endTime: e.endTime || '12:00',
-                    venue: e.venue || '',
-                    notes: e.notes || '',
-                    selected: true,
-                }));
+            if (Array.isArray(data.exams)) {
+                const exams = data.exams.map((exam, index) => toExtractedExam(exam, index));
                 setExtractedExams(exams);
                 toast.success(`Extracted ${exams.length} exam${exams.length !== 1 ? 's' : ''}!`);
                 setShowAiInput(false);
@@ -187,7 +211,7 @@ export default function ExamsPage() {
 
         try {
             const selectedExams = extractedExams
-                .filter((e: any) => e.selected !== false)
+                .filter((exam) => exam.selected)
                 .map((e) => ({
                     id: '',
                     subjectName: e.subjectName || '',
@@ -655,26 +679,26 @@ export default function ExamsPage() {
                                 <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium text-neon-green flex items-center gap-2">
                                         <CheckCircleIcon className="w-4 h-4" />
-                                        {extractedExams.filter((e: any) => e.selected !== false).length} of {extractedExams.length} Exams Selected
+                                        {extractedExams.filter((exam) => exam.selected).length} of {extractedExams.length} Exams Selected
                                     </p>
                                     <button
                                         onClick={() => {
-                                            const allSelected = extractedExams.every((e: any) => e.selected !== false);
-                                            setExtractedExams(prev => prev.map(e => ({ ...e, selected: !allSelected } as any)));
+                                            const allSelected = extractedExams.every((exam) => exam.selected);
+                                            setExtractedExams(prev => prev.map((exam) => ({ ...exam, selected: !allSelected })));
                                         }}
                                         className="text-xs text-neon-cyan hover:text-neon-cyan/80"
                                     >
-                                        {extractedExams.every((e: any) => e.selected !== false) ? 'Deselect All' : 'Select All'}
+                                        {extractedExams.every((exam) => exam.selected) ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
 
                                 <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                    {extractedExams.map((exam: any, idx) => (
+                                    {extractedExams.map((exam, idx) => (
                                         <div
                                             key={idx}
                                             onClick={() => {
                                                 setExtractedExams(prev =>
-                                                    prev.map((e, i) => i === idx ? { ...e, selected: !(e as any).selected } as any : e)
+                                                    prev.map((entry, i) => i === idx ? { ...entry, selected: !entry.selected } : entry)
                                                 );
                                             }}
                                             className={cn(
@@ -811,8 +835,8 @@ export default function ExamsPage() {
                             Cancel
                         </Button>
                         <Button variant="primary" onClick={handleCreateRoutine}>
-                            {extractedExams.filter((e: any) => e.selected !== false).length > 0
-                                ? `Create with ${extractedExams.filter((e: any) => e.selected !== false).length} Exams`
+                            {extractedExams.filter((exam) => exam.selected).length > 0
+                                ? `Create with ${extractedExams.filter((exam) => exam.selected).length} Exams`
                                 : 'Create Routine'
                             }
                         </Button>

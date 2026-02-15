@@ -23,6 +23,24 @@ const COLLECTION_NAME = 'subjects';
 
 // console.log('subjectsService loaded. DB available:', !!db);
 
+function safeToDate(ts: unknown): Date {
+    if (!ts) return new Date();
+    if (typeof ts === 'object' && ts !== null && 'toDate' in ts && typeof (ts as { toDate?: unknown }).toDate === 'function') {
+        try {
+            return (ts as { toDate: () => Date }).toDate();
+        } catch {
+            return new Date();
+        }
+    }
+
+    if (typeof ts === 'object' && ts !== null && 'seconds' in ts && typeof (ts as { seconds?: unknown }).seconds === 'number') {
+        return new Date((ts as { seconds: number }).seconds * 1000);
+    }
+
+    const parsed = new Date(ts as string | number | Date);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 /**
  * Create a new subject
  */
@@ -76,7 +94,6 @@ export async function getSubject(subjectId: string): Promise<Subject | null> {
     if (!docSnap.exists()) return null;
 
     const data = docSnap.data();
-    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
 
     return {
         id: docSnap.id,
@@ -101,7 +118,6 @@ export async function getUserSubjects(userId: string): Promise<Subject[]> {
 
     const subjects = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
-        const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
         return {
             id: docSnap.id,
             ...data,

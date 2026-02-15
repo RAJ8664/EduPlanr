@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -52,6 +53,7 @@ function sanitizePlainText(text: string): string {
 }
 
 export default function NotesPage() {
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
 
   const [notes, setNotes] = useState<NoteMaterial[]>([]);
@@ -135,6 +137,13 @@ export default function NotesPage() {
   useEffect(() => {
     syncEditorWithNote(selectedNote);
   }, [selectedNote, syncEditorWithNote]);
+
+  useEffect(() => {
+    const queryFromUrl = searchParams.get('q');
+    if (queryFromUrl !== null) {
+      setSearchQuery(queryFromUrl);
+    }
+  }, [searchParams]);
 
   const handleSelectNote = useCallback(
     (note: NoteMaterial) => {

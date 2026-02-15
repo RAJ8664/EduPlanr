@@ -3,8 +3,7 @@ import {
     calculateSGPA,
     calculateCGPA,
     convertGPAToPercentage,
-    CourseResult,
-    LetterGrade
+    CourseResult
 } from './gradingUtils';
 
 describe('Grading Utils', () => {

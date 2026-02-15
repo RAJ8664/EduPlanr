@@ -20,6 +20,7 @@ import {
   UserCredential,
 } from "firebase/auth";
 import {
+  Timestamp,
   collection,
   deleteDoc,
   doc,
@@ -35,14 +36,36 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { UserProfile, UserPreferences } from "@/types";
 
+const USER_SCOPED_COLLECTIONS = [
+  "subjects",
+  "semesters",
+  "syllabi",
+  "sessions",
+  "materials",
+  "routines",
+  "examRoutines",
+  "conversations",
+  "notifications",
+] as const;
+
 // Default preferences for new users
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: "dark",
+  timezone: "America/New_York",
   defaultStudyDuration: 45,
   breakDuration: 10,
+  longBreakDuration: 15,
+  sessionsBeforeLongBreak: 4,
+  autoStartBreaks: true,
   dailyGoalHours: 4,
   notifications: true,
+  emailReminders: true,
+  sessionReminders: true,
+  weeklyReports: true,
+  achievements: true,
   soundEnabled: true,
+  accentColor: "cyan",
+  compactMode: false,
 };
 
 /**
@@ -81,8 +104,14 @@ async function createUserProfile(user: User): Promise<UserProfile> {
 
   // Return existing profile
   const data = userSnap.data();
+  const mergedPreferences: UserPreferences = {
+    ...DEFAULT_PREFERENCES,
+    ...(data.preferences || {}),
+  };
+
   return {
     ...data,
+    preferences: mergedPreferences,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   } as UserProfile;
@@ -246,8 +275,14 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (!userSnap.exists()) return null;
 
   const data = userSnap.data();
+  const mergedPreferences: UserPreferences = {
+    ...DEFAULT_PREFERENCES,
+    ...(data.preferences || {}),
+  };
+
   return {
     ...data,
+    preferences: mergedPreferences,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   } as UserProfile;
@@ -304,19 +339,7 @@ export async function updateUserPreferences(
 export async function deleteUserData(uid: string): Promise<void> {
   if (!db) throw new Error("Firebase not initialized");
 
-  const collectionsWithUserId = [
-    "subjects",
-    "semesters",
-    "syllabi",
-    "sessions",
-    "materials",
-    "routines",
-    "examRoutines",
-    "conversations",
-    "notifications",
-  ];
-
-  for (const collectionName of collectionsWithUserId) {
+  for (const collectionName of USER_SCOPED_COLLECTIONS) {
     const q = query(collection(db, collectionName), where("userId", "==", uid));
     const snap = await getDocs(q);
 
@@ -344,6 +367,61 @@ export async function deleteUserData(uid: string): Promise<void> {
 
   // Remove user profile doc last.
   await deleteDoc(doc(db, "users", uid));
+}
+
+function serializeFirestoreValue(value: unknown): unknown {
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => serializeFirestoreValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    const output: Record<string, unknown> = {};
+    for (const [key, entryValue] of Object.entries(value)) {
+      output[key] = serializeFirestoreValue(entryValue);
+    }
+    return output;
+  }
+
+  return value;
+}
+
+/**
+ * Export all user-owned Firestore data for backup/download.
+ */
+export async function exportUserData(uid: string): Promise<Record<string, unknown>> {
+  if (!db) throw new Error("Firebase not initialized");
+  const firestore = db;
+
+  const collections: Record<string, unknown[]> = {};
+
+  await Promise.all(
+    USER_SCOPED_COLLECTIONS.map(async (collectionName) => {
+      const q = query(collection(firestore, collectionName), where("userId", "==", uid));
+      const snapshot = await getDocs(q);
+      collections[collectionName] = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(serializeFirestoreValue(docSnap.data()) as Record<string, unknown>),
+      }));
+    }),
+  );
+
+  const userDoc = await getDoc(doc(firestore, "users", uid));
+  const profileData = userDoc.exists() ? serializeFirestoreValue(userDoc.data()) : null;
+
+  return {
+    uid,
+    exportedAt: new Date().toISOString(),
+    profile: profileData,
+    collections,
+  };
 }
 
 /* Compress image and convert to Base64 */

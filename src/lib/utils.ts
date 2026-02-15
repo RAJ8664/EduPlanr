@@ -17,17 +17,33 @@ export function cn(...inputs: ClassValue[]): string {
  * Safely parse any date-like value (Firestore Timestamp, string, Date, etc.)
  * Returns a valid Date or null
  */
-export function safeParseDate(value: any): Date | null {
+interface ToDateLike {
+  toDate: () => Date;
+}
+
+interface SecondsLike {
+  seconds: number;
+}
+
+function hasToDate(value: unknown): value is ToDateLike {
+  return !!value && typeof value === 'object' && 'toDate' in value && typeof (value as ToDateLike).toDate === 'function';
+}
+
+function hasSeconds(value: unknown): value is SecondsLike {
+  return !!value && typeof value === 'object' && 'seconds' in value && typeof (value as SecondsLike).seconds === 'number';
+}
+
+export function safeParseDate(value: unknown): Date | null {
   if (!value) return null;
   // Firestore Timestamp with .toDate()
-  if (typeof value.toDate === 'function') {
+  if (hasToDate(value)) {
     try {
       const d = value.toDate();
       return isValid(d) ? d : null;
     } catch { return null; }
   }
   // Raw Firestore timestamp object { seconds, nanoseconds }
-  if (typeof value === 'object' && typeof value.seconds === 'number') {
+  if (hasSeconds(value)) {
     const d = new Date(value.seconds * 1000);
     return isValid(d) ? d : null;
   }
@@ -36,14 +52,18 @@ export function safeParseDate(value: any): Date | null {
     return isValid(value) ? value : null;
   }
   // String or number
-  const d = new Date(value);
-  return isValid(d) ? d : null;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return isValid(d) ? d : null;
+  }
+
+  return null;
 }
 
 /**
  * Format date for display with smart relative formatting
  */
-export function formatSmartDate(date: any): string {
+export function formatSmartDate(date: unknown): string {
   const parsed = safeParseDate(date);
   if (!parsed) return '';
 

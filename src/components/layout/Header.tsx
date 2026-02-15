@@ -23,6 +23,35 @@ import { signOut } from '@/services/authService';
 import { Avatar, Button } from '@/components/ui';
 import { useClickOutside } from '@/hooks';
 
+interface SearchTarget {
+  href: string;
+  keywords: string[];
+}
+
+const SEARCH_TARGETS: SearchTarget[] = [
+  { href: '/dashboard', keywords: ['dashboard', 'overview', 'home'] },
+  { href: '/calendar', keywords: ['calendar', 'session', 'schedule', 'plan'] },
+  { href: '/subjects', keywords: ['subject', 'course', 'cgpa', 'semester'] },
+  { href: '/syllabus', keywords: ['syllabus', 'topic', 'progress'] },
+  { href: '/materials', keywords: ['material', 'document', 'file', 'resource'] },
+  { href: '/notes', keywords: ['note', 'notes', 'markdown'] },
+  { href: '/routine', keywords: ['routine', 'daily', 'habit', 'timetable'] },
+  { href: '/exams', keywords: ['exam', 'test', 'assessment'] },
+  { href: '/tutor', keywords: ['ai', 'tutor', 'chat', 'question', 'explain'] },
+  { href: '/notifications', keywords: ['notification', 'alert', 'reminder'] },
+  { href: '/settings', keywords: ['setting', 'profile', 'preference'] },
+];
+
+function resolveSearchHref(query: string): string {
+  const normalized = query.toLowerCase();
+  for (const target of SEARCH_TARGETS) {
+    if (target.keywords.some((keyword) => normalized.includes(keyword) || keyword.includes(normalized))) {
+      return target.href;
+    }
+  }
+  return '/materials';
+}
+
 export function Header() {
   const router = useRouter();
   const { profile } = useAuthStore();
@@ -46,6 +75,20 @@ export function Header() {
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setIsSearchOpen(false);
+      return;
+    }
+
+    const href = resolveSearchHref(trimmedQuery);
+    router.push(`${href}?q=${encodeURIComponent(trimmedQuery)}`);
+    setIsSearchOpen(false);
   };
 
   return (
@@ -80,14 +123,16 @@ export function Header() {
                 exit={{ width: 0, opacity: 0 }}
                 className="absolute right-10 top-1/2 -translate-y-1/2"
               >
-                <input
-                  type="text"
-                  placeholder="Search materials, notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-dark-800 border border-dark-600 text-gray-100 placeholder-gray-500 text-sm focus:border-neon-cyan/50 focus:outline-none"
-                  autoFocus
-                />
+                <form onSubmit={handleSearchSubmit}>
+                  <input
+                    type="text"
+                    placeholder="Search materials, notes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2 rounded-xl bg-dark-800 border border-dark-600 text-gray-100 placeholder-gray-500 text-sm focus:border-neon-cyan/50 focus:outline-none"
+                    autoFocus
+                  />
+                </form>
               </motion.div>
             )}
           </AnimatePresence>

@@ -20,6 +20,24 @@ import { Semester } from '@/types';
 
 const COLLECTION_NAME = 'semesters';
 
+function safeToDate(ts: unknown): Date {
+    if (!ts) return new Date();
+    if (typeof ts === 'object' && ts !== null && 'toDate' in ts && typeof (ts as { toDate?: unknown }).toDate === 'function') {
+        try {
+            return (ts as { toDate: () => Date }).toDate();
+        } catch {
+            return new Date();
+        }
+    }
+
+    if (typeof ts === 'object' && ts !== null && 'seconds' in ts && typeof (ts as { seconds?: unknown }).seconds === 'number') {
+        return new Date((ts as { seconds: number }).seconds * 1000);
+    }
+
+    const parsed = new Date(ts as string | number | Date);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 /**
  * Create a new semester
  */
@@ -61,7 +79,6 @@ export async function getSemester(semesterId: string): Promise<Semester | null> 
     if (!docSnap.exists()) return null;
 
     const data = docSnap.data();
-    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
 
     return {
         id: docSnap.id,
@@ -88,7 +105,6 @@ export async function getUserSemesters(userId: string): Promise<Semester[]> {
 
     const semesters = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
-        const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
         return {
             id: docSnap.id,
             ...data,

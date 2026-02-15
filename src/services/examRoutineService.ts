@@ -77,16 +77,19 @@ export async function getUserExamRoutines(userId: string): Promise<ExamRoutine[]
 
     const snapshot = await getDocs(q);
 
-    const safeToDate = (ts: any): Date => {
+    const safeToDate = (ts: unknown): Date => {
         if (!ts) return new Date();
-        if (typeof ts.toDate === 'function') {
-            try { return ts.toDate(); } catch { return new Date(); }
+        if (typeof ts === 'object' && ts !== null && 'toDate' in ts && typeof (ts as { toDate?: unknown }).toDate === 'function') {
+            try { return (ts as { toDate: () => Date }).toDate(); } catch { return new Date(); }
         }
-        if (typeof ts === 'object' && typeof ts.seconds === 'number') {
-            return new Date(ts.seconds * 1000);
+        if (typeof ts === 'object' && ts !== null && 'seconds' in ts && typeof (ts as { seconds?: unknown }).seconds === 'number') {
+            return new Date((ts as { seconds: number }).seconds * 1000);
         }
-        const d = new Date(ts);
-        return isNaN(d.getTime()) ? new Date() : d;
+        if (typeof ts === 'string' || typeof ts === 'number' || ts instanceof Date) {
+            const d = new Date(ts);
+            return isNaN(d.getTime()) ? new Date() : d;
+        }
+        return new Date();
     };
 
     const routines = snapshot.docs.map((docSnap) => {

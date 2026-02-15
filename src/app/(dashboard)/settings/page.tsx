@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -23,13 +23,15 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, Button, Input, Badge, Avatar } from '@/components/ui';
 import { cn, parseErrorMessage } from '@/lib/utils';
-import { useAuthStore } from '@/store';
+import { useAuthStore, useUIStore } from '@/store';
 import {
   updateUserDisplayName,
   updateUserPreferences,
   compressImage,
   updateProfilePicture,
+  exportUserData,
   deleteUserData,
+  resetPassword,
   signOut,
 } from '@/services/authService';
 import {
@@ -40,12 +42,102 @@ import {
   reauthenticateWithPopup,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { requestBrowserNotificationPermission } from '@/services/notificationsService';
+import type { UserProfile } from '@/types';
 
 interface SettingSection {
   id: string;
   title: string;
   description: string;
   icon: React.ElementType;
+}
+
+type AccentColor = 'cyan' | 'purple' | 'pink' | 'green';
+
+interface NotificationSettings {
+  emailReminders: boolean;
+  pushNotifications: boolean;
+  sessionReminders: boolean;
+  weeklyReports: boolean;
+  achievements: boolean;
+}
+
+interface AppearanceSettings {
+  theme: 'light' | 'dark' | 'system';
+  accentColor: AccentColor;
+  compactMode: boolean;
+}
+
+interface StudySettings {
+  defaultSessionDuration: number;
+  breakDuration: number;
+  longBreakDuration: number;
+  sessionsBeforeLongBreak: number;
+  autoStartBreaks: boolean;
+  soundEnabled: boolean;
+}
+
+interface SettingsSnapshot {
+  displayName: string;
+  timezone: string;
+  notifications: NotificationSettings;
+  appearance: AppearanceSettings;
+  studySettings: StudySettings;
+}
+
+const DEFAULT_TIMEZONE = 'America/New_York';
+
+const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  emailReminders: true,
+  pushNotifications: true,
+  sessionReminders: true,
+  weeklyReports: true,
+  achievements: true,
+};
+
+const DEFAULT_APPEARANCE: AppearanceSettings = {
+  theme: 'dark',
+  accentColor: 'cyan',
+  compactMode: false,
+};
+
+const DEFAULT_STUDY: StudySettings = {
+  defaultSessionDuration: 45,
+  breakDuration: 10,
+  longBreakDuration: 15,
+  sessionsBeforeLongBreak: 4,
+  autoStartBreaks: true,
+  soundEnabled: true,
+};
+
+function createSnapshot(profile: UserProfile | null, fallbackName: string): SettingsSnapshot {
+  const preferences = profile?.preferences;
+  return {
+    displayName: profile?.displayName || fallbackName,
+    timezone: preferences?.timezone || DEFAULT_TIMEZONE,
+    notifications: {
+      emailReminders: preferences?.emailReminders ?? DEFAULT_NOTIFICATIONS.emailReminders,
+      pushNotifications: preferences?.notifications ?? DEFAULT_NOTIFICATIONS.pushNotifications,
+      sessionReminders: preferences?.sessionReminders ?? DEFAULT_NOTIFICATIONS.sessionReminders,
+      weeklyReports: preferences?.weeklyReports ?? DEFAULT_NOTIFICATIONS.weeklyReports,
+      achievements: preferences?.achievements ?? DEFAULT_NOTIFICATIONS.achievements,
+    },
+    appearance: {
+      theme: preferences?.theme || DEFAULT_APPEARANCE.theme,
+      accentColor: preferences?.accentColor || DEFAULT_APPEARANCE.accentColor,
+      compactMode: preferences?.compactMode ?? DEFAULT_APPEARANCE.compactMode,
+    },
+    studySettings: {
+      defaultSessionDuration:
+        preferences?.defaultStudyDuration || DEFAULT_STUDY.defaultSessionDuration,
+      breakDuration: preferences?.breakDuration || DEFAULT_STUDY.breakDuration,
+      longBreakDuration: preferences?.longBreakDuration || DEFAULT_STUDY.longBreakDuration,
+      sessionsBeforeLongBreak:
+        preferences?.sessionsBeforeLongBreak || DEFAULT_STUDY.sessionsBeforeLongBreak,
+      autoStartBreaks: preferences?.autoStartBreaks ?? DEFAULT_STUDY.autoStartBreaks,
+      soundEnabled: preferences?.soundEnabled ?? DEFAULT_STUDY.soundEnabled,
+    },
+  };
 }
 
 const settingSections: SettingSection[] = [
@@ -83,66 +175,110 @@ const settingSections: SettingSection[] = [
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, profile } = useAuthStore();
+  const { user, profile, setProfile } = useAuthStore();
+  const setTheme = useUIStore((state) => state.setTheme);
   const [activeSection, setActiveSection] = useState('profile');
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('unsupported');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [initialSnapshot, setInitialSnapshot] = useState<SettingsSnapshot | null>(null);
 
   // Form states initialized with profile data
-  const [displayName, setDisplayName] = useState(profile?.displayName || '');
-  const [timezone, setTimezone] = useState(profile?.preferences?.timezone || 'America/New_York');
+  const [displayName, setDisplayName] = useState('');
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
 
   // Notification settings
-  const [notifications, setNotifications] = useState({
-    emailReminders: true,
-    pushNotifications: profile?.preferences?.notifications ?? true,
-    sessionReminders: true,
-    weeklyReports: true,
-    achievements: true,
-  });
+  const [notifications, setNotifications] = useState<NotificationSettings>(DEFAULT_NOTIFICATIONS);
 
   // Appearance settings
-  const [appearance, setAppearance] = useState({
-    theme: (profile?.preferences?.theme || 'dark') as 'light' | 'dark' | 'system',
-    accentColor: 'cyan' as 'cyan' | 'purple' | 'pink' | 'green',
-    compactMode: false,
-  });
+  const [appearance, setAppearance] = useState<AppearanceSettings>(DEFAULT_APPEARANCE);
 
   // Study settings
-  const [studySettings, setStudySettings] = useState({
-    defaultSessionDuration: profile?.preferences?.defaultStudyDuration || 45,
-    breakDuration: profile?.preferences?.breakDuration || 10,
-    longBreakDuration: 15,
-    sessionsBeforeLongBreak: 4,
-    autoStartBreaks: true,
-    soundEnabled: profile?.preferences?.soundEnabled ?? true,
-  });
+  const [studySettings, setStudySettings] = useState<StudySettings>(DEFAULT_STUDY);
 
   const parseIntOrFallback = (value: string, fallback: number) => {
     const parsed = Number.parseInt(value, 10);
     return Number.isNaN(parsed) ? fallback : parsed;
   };
 
-  // Update local state when profile loads
+  const applySnapshot = (snapshot: SettingsSnapshot) => {
+    setDisplayName(snapshot.displayName);
+    setTimezone(snapshot.timezone);
+    setNotifications(snapshot.notifications);
+    setAppearance(snapshot.appearance);
+    setStudySettings(snapshot.studySettings);
+  };
+
+  // Update local state when auth/profile changes.
   useEffect(() => {
-    if (profile) {
-      setDisplayName(profile.displayName || '');
-      setTimezone(profile.preferences?.timezone || 'America/New_York');
-      setAppearance(prev => ({ ...prev, theme: profile.preferences?.theme || 'dark' }));
-      setNotifications(prev => ({
-        ...prev,
-        pushNotifications: profile.preferences?.notifications ?? true,
-      }));
-      setStudySettings(prev => ({
-        ...prev,
-        defaultSessionDuration: profile.preferences?.defaultStudyDuration || 45,
-        breakDuration: profile.preferences?.breakDuration || 10,
-        soundEnabled: profile.preferences?.soundEnabled ?? true
-      }));
+    const fallbackName =
+      user?.displayName || user?.email?.split('@')[0] || profile?.displayName || 'Student';
+    const snapshot = createSnapshot(profile, fallbackName);
+    applySnapshot(snapshot);
+    setInitialSnapshot(snapshot);
+    setIsDirty(false);
+  }, [profile, user?.displayName, user?.email]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotificationPermission('unsupported');
+      return;
     }
-  }, [profile]);
+
+    setNotificationPermission(window.Notification.permission);
+  }, []);
+
+  const connectedProviders = useMemo(() => {
+    if (user?.isAnonymous) {
+      return [
+        {
+          id: 'anonymous',
+          label: 'Guest Session',
+          detail: 'Anonymous account',
+        },
+      ];
+    }
+
+    const providers = user?.providerData || [];
+    if (providers.length === 0) {
+      return [
+        {
+          id: 'account',
+          label: 'Account',
+          detail: 'Primary sign-in',
+        },
+      ];
+    }
+
+    return providers.map((provider) => {
+      if (provider.providerId === 'google.com') {
+        return {
+          id: provider.providerId,
+          label: 'Google',
+          detail: provider.email || 'Connected',
+        };
+      }
+
+      if (provider.providerId === 'password') {
+        return {
+          id: provider.providerId,
+          label: 'Email & Password',
+          detail: provider.email || 'Connected',
+        };
+      }
+
+      return {
+        id: provider.providerId,
+        label: provider.providerId,
+        detail: provider.email || 'Connected',
+      };
+    });
+  }, [user?.isAnonymous, user?.providerData]);
 
   const handleSave = async () => {
     if (!user?.uid) return;
@@ -155,22 +291,142 @@ export default function SettingsPage() {
       }
 
       // 2. Update Preferences
-      await updateUserPreferences(user.uid, {
+      const nextPreferences = {
         theme: appearance.theme,
-        timezone: timezone,
+        timezone,
         defaultStudyDuration: studySettings.defaultSessionDuration,
         breakDuration: studySettings.breakDuration,
+        longBreakDuration: studySettings.longBreakDuration,
+        sessionsBeforeLongBreak: studySettings.sessionsBeforeLongBreak,
+        autoStartBreaks: studySettings.autoStartBreaks,
         soundEnabled: studySettings.soundEnabled,
-        notifications: notifications.pushNotifications
+        notifications: notifications.pushNotifications,
+        emailReminders: notifications.emailReminders,
+        sessionReminders: notifications.sessionReminders,
+        weeklyReports: notifications.weeklyReports,
+        achievements: notifications.achievements,
+        accentColor: appearance.accentColor,
+        compactMode: appearance.compactMode,
+      } as const;
+
+      await updateUserPreferences(user.uid, {
+        ...nextPreferences,
       });
 
+      setTheme(appearance.theme);
+      if (profile) {
+        setProfile({
+          ...profile,
+          displayName,
+          updatedAt: new Date(),
+          preferences: {
+            ...profile.preferences,
+            ...nextPreferences,
+          },
+        });
+      }
+
+      const savedSnapshot: SettingsSnapshot = {
+        displayName,
+        timezone,
+        notifications,
+        appearance,
+        studySettings,
+      };
+      setInitialSnapshot(savedSnapshot);
       setIsDirty(false);
       toast.success('Settings saved successfully');
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
+      toast.error(parseErrorMessage(error));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (!initialSnapshot) return;
+    applySnapshot(initialSnapshot);
+    setIsDirty(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!user) return;
+
+    const providerIds = user.providerData.map((provider) => provider.providerId);
+    if (!providerIds.includes('password')) {
+      window.open('https://myaccount.google.com/security', '_blank', 'noopener,noreferrer');
+      toast.success('Manage password from your Google account settings');
+      return;
+    }
+
+    if (!user.email) {
+      toast.error('No email found for this account');
+      return;
+    }
+
+    try {
+      await resetPassword(user.email);
+      toast.success('Password reset email sent');
+    } catch (error) {
+      toast.error(parseErrorMessage(error));
+    }
+  };
+
+  const handleManageSecurity = async () => {
+    try {
+      const permission = await requestBrowserNotificationPermission();
+      setNotificationPermission(permission);
+
+      if (permission === 'granted') {
+        toast.success('Browser notifications enabled');
+      } else if (permission === 'denied') {
+        toast.error('Notifications are blocked. Enable them in browser settings.');
+      } else if (permission === 'unsupported') {
+        toast.error('Browser notifications are not supported');
+      }
+    } catch (error) {
+      toast.error(parseErrorMessage(error));
+    }
+  };
+
+  const downloadJson = (filename: string, payload: Record<string, unknown>) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDataExport = async (kind: 'export' | 'backup') => {
+    if (!user?.uid) return;
+
+    setIsExporting(true);
+    try {
+      const data = await exportUserData(user.uid);
+      const today = new Date().toISOString().split('T')[0];
+      const payload: Record<string, unknown> = {
+        ...data,
+        exportKind: kind,
+        schemaVersion: 1,
+      };
+      const filename =
+        kind === 'backup'
+          ? `eduplanr-backup-${today}.json`
+          : `eduplanr-export-${today}.json`;
+
+      downloadJson(filename, payload);
+      toast.success(kind === 'backup' ? 'Backup downloaded' : 'Data export downloaded');
+    } catch (error) {
+      toast.error(parseErrorMessage(error));
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -241,7 +497,7 @@ export default function SettingsPage() {
       const base64Image = await compressImage(file);
       await updateProfilePicture(base64Image, user.uid);
       if (profile) {
-        useAuthStore.getState().setProfile({ ...profile, photoURL: base64Image });
+        setProfile({ ...profile, photoURL: base64Image, updatedAt: new Date() });
       }
       toast.success('Profile picture updated!');
     } catch (error) {
@@ -607,59 +863,70 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-lg font-semibold text-white mb-4">Connected Accounts</h3>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-dark-700/30 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-                      <svg className="w-6 h-6" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        />
-                      </svg>
+                {connectedProviders.map((provider) => (
+                  <div
+                    key={provider.id}
+                    className="flex items-center justify-between p-4 bg-dark-700/30 rounded-xl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-dark-600 text-white flex items-center justify-center text-sm font-semibold">
+                        {provider.label.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">{provider.label}</p>
+                        <p className="text-sm text-gray-400">{provider.detail}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-white">Google</p>
-                      <p className="text-sm text-gray-400">Connected</p>
-                    </div>
+                    <Badge variant="green">Connected</Badge>
                   </div>
-                  <Badge variant="green">Connected</Badge>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* Password */}
             <div>
               <h3 className="text-lg font-semibold text-white mb-4">Password</h3>
-              <Button variant="secondary">Change Password</Button>
+              <Button variant="secondary" onClick={() => void handleChangePassword()}>
+                Change Password
+              </Button>
             </div>
 
-            {/* Two-factor */}
+            {/* Browser alerts */}
             <div className="flex items-center justify-between p-4 bg-dark-700/30 rounded-xl">
               <div>
-                <h4 className="font-medium text-white">Two-Factor Authentication</h4>
-                <p className="text-sm text-gray-400">Add an extra layer of security</p>
+                <h4 className="font-medium text-white">Browser Notification Access</h4>
+                <p className="text-sm text-gray-400">
+                  Current status:{' '}
+                  {notificationPermission === 'unsupported'
+                    ? 'Not supported'
+                    : notificationPermission}
+                </p>
               </div>
-              <Button variant="secondary" size="sm">Enable</Button>
+              <Button variant="secondary" size="sm" onClick={() => void handleManageSecurity()}>
+                {notificationPermission === 'granted' ? 'Refresh' : 'Enable'}
+              </Button>
             </div>
 
             {/* Data export */}
             <div>
               <h3 className="text-lg font-semibold text-white mb-4">Your Data</h3>
               <div className="flex gap-3">
-                <Button variant="secondary" size="sm">Export Data</Button>
-                <Button variant="secondary" size="sm">Download Backup</Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isExporting}
+                  onClick={() => void handleDataExport('export')}
+                >
+                  Export Data
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isExporting}
+                  onClick={() => void handleDataExport('backup')}
+                >
+                  Download Backup
+                </Button>
               </div>
             </div>
           </div>
@@ -747,7 +1014,7 @@ export default function SettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex justify-end gap-3 p-6 border-t border-dark-600/50"
               >
-                <Button variant="secondary" onClick={() => setIsDirty(false)}>
+                <Button variant="secondary" onClick={handleCancel}>
                   Cancel
                 </Button>
                 <Button variant="primary" onClick={handleSave} disabled={isSaving}>

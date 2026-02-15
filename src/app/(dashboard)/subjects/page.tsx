@@ -794,14 +794,21 @@ export default function SubjectsPage() {
                                     try {
                                         const data = await processDocument('subject', aiFile, aiText);
                                         if (data && data.subjects && Array.isArray(data.subjects)) {
-                                            const extracted = data.subjects.map((s: any) => ({
-                                                name: s.name || 'Untitled',
-                                                description: s.description || '',
-                                                creditHours: s.creditHours || 3,
-                                                color: s.color || SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)].value,
-                                                icon: s.icon || '📚',
+                                            const extracted = data.subjects.map((subject) => {
+                                                const parsed = subject && typeof subject === 'object'
+                                                    ? (subject as Record<string, unknown>)
+                                                    : {};
+                                                return {
+                                                name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : 'Untitled',
+                                                description: typeof parsed.description === 'string' ? parsed.description : '',
+                                                creditHours: typeof parsed.creditHours === 'number' ? parsed.creditHours : 3,
+                                                color: typeof parsed.color === 'string' && parsed.color.trim()
+                                                    ? parsed.color
+                                                    : SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)].value,
+                                                icon: typeof parsed.icon === 'string' && parsed.icon.trim() ? parsed.icon : '📚',
                                                 selected: true,
-                                            }));
+                                            } satisfies ExtractedSubject;
+                                            });
                                             setAiExtractedSubjects(extracted);
                                             setModalMode('preview');
                                             toast.success(`Found ${extracted.length} subject${extracted.length !== 1 ? 's' : ''}!`);
