@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
+import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
 
 function parseJsonArray(text: string): unknown[] {
   const cleaned = text
@@ -29,18 +31,38 @@ function parseJsonArray(text: string): unknown[] {
   }
 }
 
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  return realIp || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const apiUser = await requireApiUser(request);
+    const clientIp = getClientIp(request);
+    enforceRateLimit(`tutor:flashcards:user:${apiUser.uid}`, { limit: 12, windowMs: 60_000 });
+    enforceRateLimit(`tutor:flashcards:ip:${clientIp}`, { limit: 40, windowMs: 60_000 });
+
     const { content, count = 5 } = await request.json();
 
-    if (!content) {
+    if (!content || typeof content !== 'string') {
       return NextResponse.json({ error: 'content is required' }, { status: 400 });
     }
+
+    if (content.length > 30_000) {
+      return NextResponse.json({ error: 'content is too long' }, { status: 400 });
+    }
+
+    const safeCount = Number.isFinite(Number(count))
+      ? Math.max(1, Math.min(20, Number(count)))
+      : 5;
 
     const openAIKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-    const prompt = `Based on the following study content, generate ${count} flashcard question-answer pairs.
+    const prompt = `Based on the following study content, generate ${safeCount} flashcard question-answer pairs.
 Format your response strictly as a JSON array with objects containing "question" and "answer" fields.
 Make questions test understanding, not just memorization.
 
@@ -79,6 +101,20 @@ ${content}`;
       { status: 503 }
     );
   } catch (error) {
+    if (error instanceof ApiAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof ApiRateLimitError) {
+      return NextResponse.json(
+        { error: error.message },
+        {
+          status: error.status,
+          headers: {
+            'Retry-After': String(error.retryAfterSeconds),
+          },
+        }
+      );
+    }
     console.error('Flashcards API error:', error);
     return NextResponse.json({ error: 'Failed to generate flashcards' }, { status: 500 });
   }

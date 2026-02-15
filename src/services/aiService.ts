@@ -3,8 +3,10 @@
  * AI Service for client-side interactions
  */
 
+import { buildAuthHeaders } from '@/lib/clientAuth';
+
 export interface ProcessDocumentResponse {
-    data: any;
+    data: Record<string, unknown>;
     error?: string;
 }
 
@@ -12,7 +14,7 @@ export async function processDocument(
     type: 'subject' | 'syllabus' | 'exam-routine',
     file?: File | null,
     text?: string
-): Promise<any> {
+): Promise<Record<string, unknown>> {
     const formData = new FormData();
     formData.append('type', type);
 
@@ -25,8 +27,10 @@ export async function processDocument(
     }
 
     try {
+        const headers = await buildAuthHeaders();
         const response = await fetch('/api/ai/process-document', {
             method: 'POST',
+            headers,
             body: formData,
         });
 
@@ -45,7 +49,14 @@ export async function processDocument(
             throw new Error(result.error || `Failed to process document: ${response.status}`);
         }
 
-        return result.data;
+        if (result && typeof result === 'object' && 'data' in result) {
+            const data = (result as ProcessDocumentResponse).data;
+            if (data && typeof data === 'object') {
+                return data;
+            }
+        }
+
+        throw new Error('Invalid response payload from AI endpoint');
     } catch (error) {
         console.error('Error in aiService:', error);
         throw error;

@@ -313,6 +313,7 @@ export async function deleteUserData(uid: string): Promise<void> {
     "routines",
     "examRoutines",
     "conversations",
+    "notifications",
   ];
 
   for (const collectionName of collectionsWithUserId) {

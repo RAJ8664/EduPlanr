@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
+import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require('pdf-parse');
 
@@ -21,16 +23,35 @@ function cleanModelJsonResponse(textResponse: string): string {
         .trim();
 }
 
+function getClientIp(request: NextRequest): string {
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    if (forwardedFor) return forwardedFor.split(',')[0].trim();
+    const realIp = request.headers.get('x-real-ip');
+    return realIp || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
     try {
+        const apiUser = await requireApiUser(request);
+        const clientIp = getClientIp(request);
+        enforceRateLimit(`ai:process-document:user:${apiUser.uid}`, { limit: 10, windowMs: 60_000 });
+        enforceRateLimit(`ai:process-document:ip:${clientIp}`, { limit: 30, windowMs: 60_000 });
+
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
         const text = formData.get('text') as string | null;
         const type = formData.get('type') as 'subject' | 'syllabus' | 'exam-routine';
 
-        if (!type || (!file && !text)) {
+        if (!type || !['subject', 'syllabus', 'exam-routine'].includes(type) || (!file && !text)) {
             return NextResponse.json(
                 { error: 'Missing required fields: type and either file or text' },
+                { status: 400 }
+            );
+        }
+
+        if (file && file.size > 10 * 1024 * 1024) {
+            return NextResponse.json(
+                { error: 'File is too large. Maximum allowed size is 10MB.' },
                 { status: 400 }
             );
         }
@@ -171,6 +192,20 @@ export async function POST(request: NextRequest) {
         }
 
     } catch (error: unknown) {
+        if (error instanceof ApiAuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        if (error instanceof ApiRateLimitError) {
+            return NextResponse.json(
+                { error: error.message },
+                {
+                    status: error.status,
+                    headers: {
+                        'Retry-After': String(error.retryAfterSeconds),
+                    },
+                }
+            );
+        }
         const message = error instanceof Error ? error.message : 'Internal server error';
         console.error('Error processing document:', error);
         return NextResponse.json(
@@ -178,19 +213,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
-
-export async function GET() {
-    return NextResponse.json({ message: 'API route is working' }, { status: 200 });
-}
-
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 200,
-        headers: {
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Origin': '*',
-        },
-    });
 }

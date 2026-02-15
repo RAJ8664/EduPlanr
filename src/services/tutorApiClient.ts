@@ -4,6 +4,7 @@
  */
 
 import { ChatMessage } from '@/types';
+import { buildAuthHeaders } from '@/lib/clientAuth';
 
 /**
  * Send a message to the AI Tutor
@@ -13,11 +14,13 @@ export async function sendTutorMessage(
   userMessage: string
 ): Promise<string> {
   try {
+    const headers = await buildAuthHeaders({
+      'Content-Type': 'application/json',
+    });
+
     const response = await fetch('/api/tutor/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         userMessage,
@@ -45,11 +48,13 @@ export async function generateFlashcards(
   count: number = 5
 ): Promise<Array<{ question: string; answer: string }>> {
   try {
+    const headers = await buildAuthHeaders({
+      'Content-Type': 'application/json',
+    });
+
     const response = await fetch('/api/tutor/flashcards', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ content, count }),
     });
 
@@ -71,11 +76,13 @@ export async function generateFlashcards(
  */
 export async function summarizeNotes(content: string): Promise<string> {
   try {
+    const headers = await buildAuthHeaders({
+      'Content-Type': 'application/json',
+    });
+
     const response = await fetch('/api/tutor/summarize', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ content }),
     });
 
@@ -101,11 +108,13 @@ export async function generateQuestions(
   count: number = 5
 ): Promise<Array<{ question: string; options?: string[]; answer: string; explanation: string }>> {
   try {
+    const headers = await buildAuthHeaders({
+      'Content-Type': 'application/json',
+    });
+
     const response = await fetch('/api/tutor/questions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ topic, difficulty, count }),
     });
 

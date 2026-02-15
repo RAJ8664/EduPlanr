@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
+import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
 
 function parseJsonArray(text: string): unknown[] {
   const cleaned = text
@@ -29,18 +31,41 @@ function parseJsonArray(text: string): unknown[] {
   }
 }
 
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  return realIp || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const apiUser = await requireApiUser(request);
+    const clientIp = getClientIp(request);
+    enforceRateLimit(`tutor:questions:user:${apiUser.uid}`, { limit: 12, windowMs: 60_000 });
+    enforceRateLimit(`tutor:questions:ip:${clientIp}`, { limit: 40, windowMs: 60_000 });
+
     const { topic, difficulty = 'medium', count = 5 } = await request.json();
 
-    if (!topic) {
+    if (!topic || typeof topic !== 'string') {
       return NextResponse.json({ error: 'topic is required' }, { status: 400 });
     }
+
+    if (topic.length > 1000) {
+      return NextResponse.json({ error: 'topic is too long' }, { status: 400 });
+    }
+
+    const safeDifficulty = ['easy', 'medium', 'hard'].includes(String(difficulty))
+      ? String(difficulty)
+      : 'medium';
+    const safeCount = Number.isFinite(Number(count))
+      ? Math.max(1, Math.min(20, Number(count)))
+      : 5;
 
     const openAIKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-    const prompt = `Generate ${count} ${difficulty} level practice questions about: ${topic}
+    const prompt = `Generate ${safeCount} ${safeDifficulty} level practice questions about: ${topic}
 
 For each question, provide:
 - The question itself
@@ -82,6 +107,20 @@ Format as a JSON array with objects containing: question, options (array), answe
       { status: 503 }
     );
   } catch (error) {
+    if (error instanceof ApiAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof ApiRateLimitError) {
+      return NextResponse.json(
+        { error: error.message },
+        {
+          status: error.status,
+          headers: {
+            'Retry-After': String(error.retryAfterSeconds),
+          },
+        }
+      );
+    }
     console.error('Questions API error:', error);
     return NextResponse.json({ error: 'Failed to generate questions' }, { status: 500 });
   }

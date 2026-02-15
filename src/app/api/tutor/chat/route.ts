@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
+import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
 
 const SYSTEM_PROMPT = `You are EduPlanr's Smart Tutor, an intelligent and friendly study assistant. Your role is to help students learn effectively.
 
@@ -36,12 +38,28 @@ function getErrorMessage(error: unknown): string {
   return String(error || 'Unknown error');
 }
 
+function getClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) return forwardedFor.split(',')[0].trim();
+  const realIp = request.headers.get('x-real-ip');
+  return realIp || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const apiUser = await requireApiUser(request);
+    const clientIp = getClientIp(request);
+    enforceRateLimit(`tutor:chat:user:${apiUser.uid}`, { limit: 20, windowMs: 60_000 });
+    enforceRateLimit(`tutor:chat:ip:${clientIp}`, { limit: 80, windowMs: 60_000 });
+
     const { messages, userMessage } = await request.json();
 
-    if (!userMessage) {
+    if (!userMessage || typeof userMessage !== 'string') {
       return NextResponse.json({ error: 'userMessage is required' }, { status: 400 });
+    }
+
+    if (userMessage.length > 6000) {
+      return NextResponse.json({ error: 'userMessage is too long' }, { status: 400 });
     }
 
     // Support both GEMINI_API_KEY and GOOGLE_API_KEY
@@ -59,10 +77,17 @@ export async function POST(request: NextRequest) {
     // Prepare history once
     // OpenAI format: { role: 'user' | 'assistant', content: string }
     // Gemini format: { role: 'user' | 'model', parts: [{ text: string }] }
-    let history = (messages || []).slice(-10).map((msg: { role: string; content: string }) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    }));
+    let history = (Array.isArray(messages) ? messages : [])
+      .slice(-10)
+      .filter((msg: unknown) => {
+        if (!msg || typeof msg !== 'object') return false;
+        const row = msg as { role?: string; content?: string };
+        return Boolean(row.content && typeof row.content === 'string');
+      })
+      .map((msg: { role: string; content: string }) => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content.slice(0, 4000) }],
+      }));
 
     // Gemini requires the first message in history to be from 'user'
     if (history.length > 0 && history[0].role === 'model') {
@@ -114,6 +139,22 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error: unknown) {
+    if (error instanceof ApiAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof ApiRateLimitError) {
+      return NextResponse.json(
+        { error: error.message },
+        {
+          status: error.status,
+          headers: {
+            'Retry-After': String(error.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     return NextResponse.json(
       { error: `Tutor request failed: ${getErrorMessage(error)}` },
       { status: 500 }
