@@ -14,7 +14,6 @@ import {
     PlusIcon,
     TrashIcon,
     PencilSquareIcon,
-    ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Modal } from '@/components/ui';
@@ -45,10 +44,14 @@ function timeToMinutes(time: string): number {
     return h * 60 + m;
 }
 
-function minutesToTime(mins: number): string {
-    const h = Math.floor(mins / 60) % 24;
-    const m = mins % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+function getDurationMinutes(startTime: string, endTime: string): number {
+    const start = timeToMinutes(startTime);
+    const end = timeToMinutes(endTime);
+    let duration = end - start;
+    if (duration <= 0) {
+        duration += 24 * 60;
+    }
+    return duration;
 }
 
 function formatTime12h(time: string): string {
@@ -121,7 +124,14 @@ export default function RoutinePage() {
         return sortedBlocks.find((b) => {
             const start = timeToMinutes(b.startTime);
             const end = timeToMinutes(b.endTime);
-            return currentTime >= start && currentTime < end;
+            const isOvernight = end <= start;
+
+            if (!isOvernight) {
+                return currentTime >= start && currentTime < end;
+            }
+
+            // For same-day view, treat overnight blocks as active after start.
+            return currentTime >= start;
         });
     }, [sortedBlocks, currentTime]);
 
@@ -130,6 +140,13 @@ export default function RoutinePage() {
         (block: RoutineBlock): 'past' | 'current' | 'upcoming' => {
             const start = timeToMinutes(block.startTime);
             const end = timeToMinutes(block.endTime);
+            const isOvernight = end <= start;
+
+            if (isOvernight) {
+                if (currentTime >= start) return 'current';
+                return 'upcoming';
+            }
+
             if (currentTime >= end) return 'past';
             if (currentTime >= start && currentTime < end) return 'current';
             return 'upcoming';
@@ -141,10 +158,10 @@ export default function RoutinePage() {
     const currentProgress = useMemo(() => {
         if (!currentBlock) return 0;
         const start = timeToMinutes(currentBlock.startTime);
-        const end = timeToMinutes(currentBlock.endTime);
-        const total = end - start;
+        const total = getDurationMinutes(currentBlock.startTime, currentBlock.endTime);
         if (total <= 0) return 0;
-        return Math.min(100, ((currentTime - start) / total) * 100);
+        const elapsed = Math.max(0, currentTime - start);
+        return Math.min(100, (elapsed / total) * 100);
     }, [currentBlock, currentTime]);
 
     // Reset form
@@ -175,8 +192,8 @@ export default function RoutinePage() {
             return;
         }
 
-        if (timeToMinutes(formEndTime) <= timeToMinutes(formStartTime)) {
-            toast.error('End time must be after start time');
+        if (formEndTime === formStartTime) {
+            toast.error('Start and end time cannot be the same');
             return;
         }
 
@@ -369,9 +386,7 @@ export default function RoutinePage() {
                         {sortedBlocks.map((block, index) => {
                             const status = getBlockStatus(block);
                             const cat = CATEGORIES[block.category];
-                            const startMins = timeToMinutes(block.startTime);
-                            const endMins = timeToMinutes(block.endTime);
-                            const duration = endMins - startMins;
+                            const duration = getDurationMinutes(block.startTime, block.endTime);
 
                             return (
                                 <motion.div

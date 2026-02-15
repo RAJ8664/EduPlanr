@@ -123,8 +123,13 @@ export function calculateRoutineStats(blocks: RoutineBlock[]) {
     for (const block of activeBlocks) {
         const [sh, sm] = block.startTime.split(':').map(Number);
         const [eh, em] = block.endTime.split(':').map(Number);
-        const mins = (eh * 60 + em) - (sh * 60 + sm);
-        const duration = mins > 0 ? mins : 0;
+        let duration = (eh * 60 + em) - (sh * 60 + sm);
+
+        // Support overnight blocks (e.g. 23:00 -> 01:00).
+        if (duration <= 0) {
+            duration += 24 * 60;
+        }
+
         totalMinutes += duration;
         categoryMinutes[block.category] = (categoryMinutes[block.category] || 0) + duration;
     }

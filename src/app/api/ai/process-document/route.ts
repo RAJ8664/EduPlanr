@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -7,8 +6,22 @@ const pdf = require('pdf-parse');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const MODELS_TO_TRY = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-pro',
+    'gemini-2.0-flash',
+];
+
+function cleanModelJsonResponse(textResponse: string): string {
+    return textResponse
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/, '')
+        .trim();
+}
+
 export async function POST(request: NextRequest) {
-    console.log(`[AI API] ${request.method} request received`);
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -61,8 +74,6 @@ export async function POST(request: NextRequest) {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Use gemini-3-flash-preview (corrected ID)
-        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
         let prompt = '';
         if (type === 'subject') {
@@ -114,12 +125,39 @@ export async function POST(request: NextRequest) {
       `;
         }
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const textResponse = response.text();
+        let textResponse = '';
+        let lastModelError: unknown = null;
+
+        for (const modelName of MODELS_TO_TRY) {
+            try {
+                const model = genAI.getGenerativeModel({ model: modelName });
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                textResponse = response.text();
+                if (textResponse) {
+                    break;
+                }
+            } catch (error) {
+                lastModelError = error;
+                console.warn(`Model ${modelName} failed for process-document route`);
+            }
+        }
+
+        if (!textResponse) {
+            return NextResponse.json(
+                {
+                    error: 'All configured Gemini models failed',
+                    details:
+                        lastModelError instanceof Error
+                            ? lastModelError.message
+                            : 'Unknown model error',
+                },
+                { status: 502 }
+            );
+        }
 
         // Clean up markdown code blocks if present
-        const jsonString = textResponse.replace(/^```json\n|\n```$/g, '').trim();
+        const jsonString = cleanModelJsonResponse(textResponse);
 
         try {
             const data = JSON.parse(jsonString);
@@ -132,10 +170,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal server error';
         console.error('Error processing document:', error);
         return NextResponse.json(
-            { error: error.message || 'Internal server error' },
+            { error: message },
             { status: 500 }
         );
     }
@@ -145,7 +184,7 @@ export async function GET() {
     return NextResponse.json({ message: 'API route is working' }, { status: 200 });
 }
 
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
     return new NextResponse(null, {
         status: 200,
         headers: {

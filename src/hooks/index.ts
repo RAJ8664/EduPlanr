@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuthStore, useTimerStore } from '@/store';
 import { getUserProfile } from '@/services/authService';
@@ -55,12 +55,21 @@ export function useAuth() {
  */
 export function useTimer() {
   const timerState = useTimerStore();
+  const {
+    isRunning,
+    isPaused,
+    tick,
+    setSessionType,
+    startTimer,
+    duration,
+    elapsed,
+  } = timerState;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (timerState.isRunning && !timerState.isPaused) {
+    if (isRunning && !isPaused) {
       intervalRef.current = setInterval(() => {
-        timerState.tick();
+        tick();
       }, 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -72,21 +81,21 @@ export function useTimer() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [timerState.isRunning, timerState.isPaused, timerState.tick]);
+  }, [isRunning, isPaused, tick]);
 
   const startStudySession = useCallback((minutes: number, sessionId?: string) => {
-    timerState.setSessionType('study');
-    timerState.startTimer(minutes * 60, sessionId);
-  }, [timerState]);
+    setSessionType('study');
+    startTimer(minutes * 60, sessionId);
+  }, [setSessionType, startTimer]);
 
   const startBreak = useCallback((minutes: number) => {
-    timerState.setSessionType('break');
-    timerState.startTimer(minutes * 60);
-  }, [timerState]);
+    setSessionType('break');
+    startTimer(minutes * 60);
+  }, [setSessionType, startTimer]);
 
-  const remaining = timerState.duration - timerState.elapsed;
-  const progress = timerState.duration > 0
-    ? (timerState.elapsed / timerState.duration) * 100
+  const remaining = duration - elapsed;
+  const progress = duration > 0
+    ? (elapsed / duration) * 100
     : 0;
 
   return {

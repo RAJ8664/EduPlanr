@@ -15,7 +15,6 @@ import {
   PaintBrushIcon,
   ShieldCheckIcon,
   ClockIcon,
-  GlobeAltIcon,
   SunIcon,
   MoonIcon,
   ComputerDesktopIcon,
@@ -23,16 +22,23 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, Button, Input, Badge, Avatar } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn, parseErrorMessage } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import {
   updateUserDisplayName,
   updateUserPreferences,
   compressImage,
   updateProfilePicture,
+  deleteUserData,
   signOut,
 } from '@/services/authService';
-import { deleteUser } from 'firebase/auth';
+import {
+  deleteUser,
+  EmailAuthProvider,
+  GoogleAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 interface SettingSection {
@@ -114,6 +120,11 @@ export default function SettingsPage() {
     soundEnabled: profile?.preferences?.soundEnabled ?? true,
   });
 
+  const parseIntOrFallback = (value: string, fallback: number) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+
   // Update local state when profile loads
   useEffect(() => {
     if (profile) {
@@ -174,14 +185,34 @@ export default function SettingsPage() {
     if (!confirm('Are you ABSOLUTELY sure? This action cannot be undone and will delete all your data.')) return;
 
     try {
-      if (auth?.currentUser) {
-        await deleteUser(auth.currentUser);
-        router.push('/auth/login');
-        toast.success('Account deleted');
+      if (!auth?.currentUser || !user?.uid) return;
+
+      const currentUser = auth.currentUser;
+      const providerIds = currentUser.providerData.map((provider) => provider.providerId);
+
+      // Re-authenticate before destructive operations to avoid partial delete states.
+      if (providerIds.includes('google.com')) {
+        await reauthenticateWithPopup(currentUser, new GoogleAuthProvider());
+      } else if (providerIds.includes('password')) {
+        const password = window.prompt('Please enter your password to confirm account deletion:');
+        if (!password) {
+          toast.error('Account deletion cancelled');
+          return;
+        }
+        if (!currentUser.email) {
+          throw new Error('No email found for this account');
+        }
+        const credential = EmailAuthProvider.credential(currentUser.email, password);
+        await reauthenticateWithCredential(currentUser, credential);
       }
+
+      await deleteUserData(user.uid);
+      await deleteUser(currentUser);
+      router.push('/auth/login');
+      toast.success('Account and data deleted');
     } catch (error) {
       console.error('Delete account error:', error);
-      toast.error('Failed to delete account. You may need to re-login deeply first.');
+      toast.error(parseErrorMessage(error));
     }
   };
 
@@ -443,7 +474,13 @@ export default function SettingsPage() {
                   type="number"
                   value={studySettings.defaultSessionDuration}
                   onChange={(e) => {
-                    setStudySettings({ ...studySettings, defaultSessionDuration: parseInt(e.target.value) });
+                    setStudySettings({
+                      ...studySettings,
+                      defaultSessionDuration: parseIntOrFallback(
+                        e.target.value,
+                        studySettings.defaultSessionDuration
+                      ),
+                    });
                     setIsDirty(true);
                   }}
                   min={5}
@@ -459,7 +496,10 @@ export default function SettingsPage() {
                   type="number"
                   value={studySettings.breakDuration}
                   onChange={(e) => {
-                    setStudySettings({ ...studySettings, breakDuration: parseInt(e.target.value) });
+                    setStudySettings({
+                      ...studySettings,
+                      breakDuration: parseIntOrFallback(e.target.value, studySettings.breakDuration),
+                    });
                     setIsDirty(true);
                   }}
                   min={1}
@@ -475,7 +515,13 @@ export default function SettingsPage() {
                   type="number"
                   value={studySettings.longBreakDuration}
                   onChange={(e) => {
-                    setStudySettings({ ...studySettings, longBreakDuration: parseInt(e.target.value) });
+                    setStudySettings({
+                      ...studySettings,
+                      longBreakDuration: parseIntOrFallback(
+                        e.target.value,
+                        studySettings.longBreakDuration
+                      ),
+                    });
                     setIsDirty(true);
                   }}
                   min={5}
@@ -491,7 +537,13 @@ export default function SettingsPage() {
                   type="number"
                   value={studySettings.sessionsBeforeLongBreak}
                   onChange={(e) => {
-                    setStudySettings({ ...studySettings, sessionsBeforeLongBreak: parseInt(e.target.value) });
+                    setStudySettings({
+                      ...studySettings,
+                      sessionsBeforeLongBreak: parseIntOrFallback(
+                        e.target.value,
+                        studySettings.sessionsBeforeLongBreak
+                      ),
+                    });
                     setIsDirty(true);
                   }}
                   min={2}

@@ -28,6 +28,7 @@ import {
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Badge, Modal } from '@/components/ui';
 import { cn, formatSmartDate } from '@/lib/utils';
+import DOMPurify from 'dompurify';
 
 interface Note {
   id: string;
@@ -120,6 +121,9 @@ export default function NotesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
 
+  const sanitizeHtml = (html: string) =>
+    DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+
   // Filter notes
   const filteredNotes = notes.filter((note) =>
     note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,7 +134,7 @@ export default function NotesPage() {
   const handleSelectNote = (note: Note) => {
     setSelectedNote(note);
     setEditTitle(note.title);
-    setEditContent(note.content);
+    setEditContent(sanitizeHtml(note.content));
     setIsEditing(false);
   };
 
@@ -153,15 +157,17 @@ export default function NotesPage() {
   // Save note
   const handleSaveNote = () => {
     if (!selectedNote) return;
+    const sanitizedContent = sanitizeHtml(editContent);
     
     setNotes((prev) =>
       prev.map((note) =>
         note.id === selectedNote.id
-          ? { ...note, title: editTitle, content: editContent, updatedAt: new Date() }
+          ? { ...note, title: editTitle, content: sanitizedContent, updatedAt: new Date() }
           : note
       )
     );
-    setSelectedNote({ ...selectedNote, title: editTitle, content: editContent });
+    setSelectedNote({ ...selectedNote, title: editTitle, content: sanitizedContent });
+    setEditContent(sanitizedContent);
     setIsEditing(false);
   };
 
@@ -372,13 +378,13 @@ export default function NotesPage() {
                   contentEditable
                   suppressContentEditableWarning
                   className="prose prose-invert prose-neon max-w-none min-h-full focus:outline-none"
-                  dangerouslySetInnerHTML={{ __html: editContent }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(editContent) }}
                   onInput={(e) => setEditContent(e.currentTarget.innerHTML)}
                 />
               ) : (
                 <div
                   className="prose prose-invert prose-neon max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selectedNote.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedNote.content) }}
                 />
               )}
             </div>

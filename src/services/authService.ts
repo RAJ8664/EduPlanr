@@ -19,7 +19,19 @@ import {
   EmailAuthProvider,
   UserCredential,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile, UserPreferences } from "@/types";
 
@@ -251,14 +263,86 @@ export async function updateUserPreferences(
   if (!db) throw new Error("Firebase not initialized");
 
   const userRef = doc(db, "users", uid);
-  await setDoc(
-    userRef,
-    {
-      preferences,
+
+  // Write nested keys using dot-notation so partial updates don't replace
+  // the entire preferences object.
+  const preferenceUpdates: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(preferences)) {
+    if (value !== undefined) {
+      preferenceUpdates[`preferences.${key}`] = value;
+    }
+  }
+
+  if (Object.keys(preferenceUpdates).length === 0) return;
+
+  try {
+    await updateDoc(userRef, {
+      ...preferenceUpdates,
       updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
+    });
+  } catch {
+    // If profile doc doesn't exist yet, create it with merged defaults.
+    await setDoc(
+      userRef,
+      {
+        uid,
+        preferences: {
+          ...DEFAULT_PREFERENCES,
+          ...preferences,
+        },
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+}
+
+/**
+ * Delete all user-owned Firestore data for account removal.
+ */
+export async function deleteUserData(uid: string): Promise<void> {
+  if (!db) throw new Error("Firebase not initialized");
+
+  const collectionsWithUserId = [
+    "subjects",
+    "semesters",
+    "syllabi",
+    "sessions",
+    "materials",
+    "routines",
+    "examRoutines",
+    "conversations",
+  ];
+
+  for (const collectionName of collectionsWithUserId) {
+    const q = query(collection(db, collectionName), where("userId", "==", uid));
+    const snap = await getDocs(q);
+
+    if (snap.empty) continue;
+
+    let batch = writeBatch(db);
+    let count = 0;
+
+    for (const docSnap of snap.docs) {
+      batch.delete(docSnap.ref);
+      count++;
+
+      // Keep below Firestore batch limit.
+      if (count >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        count = 0;
+      }
+    }
+
+    if (count > 0) {
+      await batch.commit();
+    }
+  }
+
+  // Remove user profile doc last.
+  await deleteDoc(doc(db, "users", uid));
 }
 
 /* Compress image and convert to Base64 */

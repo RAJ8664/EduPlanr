@@ -6,6 +6,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
+import { ThemeProvider } from '@/components/providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://eduplanr.app'),
@@ -21,7 +22,6 @@ export const metadata: Metadata = {
   robots: 'index, follow',
   icons: {
     icon: '/favicon.svg',
-    apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
   openGraph: {
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     description: 'Your intelligent companion for academic success.',
     images: [
       {
-        url: '/og-image.png',
+        url: '/favicon.svg',
         width: 1200,
         height: 630,
         alt: 'EduPlanr Preview',
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'EduPlanr - Smart Study Planner',
     description: 'Your intelligent companion for academic success.',
-    images: ['/og-image.png'],
+    images: ['/favicon.svg'],
   },
 };
 
@@ -61,9 +61,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className="antialiased">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
 
         {/* Toast notifications */}
         <Toaster
