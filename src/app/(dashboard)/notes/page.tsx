@@ -1,433 +1,557 @@
 /**
- * Notes Editor Page
- * Rich text editor for study notes
+ * Notes Page
+ * Real Firebase-backed notes editor with smart writing tools.
  */
 
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
-  DocumentTextIcon,
-  PlusIcon,
-  MagnifyingGlassIcon,
-  StarIcon,
-  ClockIcon,
-  TrashIcon,
-  EllipsisHorizontalIcon,
-  SparklesIcon,
-  ArrowPathIcon,
-  BoldIcon,
-  ItalicIcon,
-  ListBulletIcon,
-  LinkIcon,
-  PhotoIcon,
-  CodeBracketIcon,
   ChevronLeftIcon,
+  DocumentTextIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  SparklesIcon,
+  StarIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
-import { Card, Button, Input, Badge, Modal } from '@/components/ui';
-import { cn, formatSmartDate } from '@/lib/utils';
+import { Badge, Button, Input } from '@/components/ui';
+import { cn, formatSmartDate, stripHtml } from '@/lib/utils';
+import { useAuthStore } from '@/store';
+import { NoteMaterial, createNote, deleteNote, getUserNotes, toggleNoteFavorite, updateNote } from '@/services/notesService';
+import { summarizeNotes } from '@/services/tutorApiClient';
 import DOMPurify from 'dompurify';
 
-interface Note {
-  id: string;
+const toolbarButtons: Array<{
+  label: string;
+  command: string;
+  value?: string;
   title: string;
-  content: string;
-  tags: string[];
-  isFavorite: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+}> = [
+  { label: 'B', command: 'bold', title: 'Bold (Ctrl+B)' },
+  { label: 'I', command: 'italic', title: 'Italic (Ctrl+I)' },
+  { label: 'U', command: 'underline', title: 'Underline (Ctrl+U)' },
+  { label: 'H1', command: 'formatBlock', value: 'h1', title: 'Heading 1' },
+  { label: 'H2', command: 'formatBlock', value: 'h2', title: 'Heading 2' },
+  { label: '•', command: 'insertUnorderedList', title: 'Bullet List' },
+  { label: '1.', command: 'insertOrderedList', title: 'Numbered List' },
+  { label: '</>', command: 'formatBlock', value: 'pre', title: 'Code Block' },
+];
+
+const EMPTY_NOTE_HTML = '<p>Start writing...</p>';
+
+function sanitizeHtml(html: string): string {
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 }
 
-// Mock notes data
-const mockNotes: Note[] = [
-  {
-    id: '1',
-    title: 'Calculus Integration Techniques',
-    content: `<h2>Integration by Parts</h2>
-<p>The integration by parts formula is derived from the product rule:</p>
-<p><strong>∫u dv = uv - ∫v du</strong></p>
-<h3>LIATE Rule</h3>
-<p>When choosing u and dv, follow the LIATE rule:</p>
-<ul>
-<li><strong>L</strong>ogarithmic functions</li>
-<li><strong>I</strong>nverse trig functions</li>
-<li><strong>A</strong>lgebraic functions</li>
-<li><strong>T</strong>rigonometric functions</li>
-<li><strong>E</strong>xponential functions</li>
-</ul>`,
-    tags: ['calculus', 'integration'],
-    isFavorite: true,
-    createdAt: new Date(Date.now() - 86400000),
-    updatedAt: new Date(Date.now() - 3600000),
-  },
-  {
-    id: '2',
-    title: 'Binary Search Tree Operations',
-    content: `<h2>BST Operations</h2>
-<h3>Insertion</h3>
-<p>Time complexity: O(log n) average, O(n) worst case</p>
-<pre><code>function insert(node, value) {
-  if (node === null) return new Node(value);
-  if (value < node.value) {
-    node.left = insert(node.left, value);
-  } else {
-    node.right = insert(node.right, value);
-  }
-  return node;
-}</code></pre>`,
-    tags: ['data-structures', 'algorithms'],
-    isFavorite: false,
-    createdAt: new Date(Date.now() - 172800000),
-    updatedAt: new Date(Date.now() - 86400000),
-  },
-  {
-    id: '3',
-    title: 'Physics: Newton\'s Laws',
-    content: `<h2>Three Laws of Motion</h2>
-<h3>First Law (Inertia)</h3>
-<p>An object remains at rest or in uniform motion unless acted upon by a force.</p>
-<h3>Second Law (F = ma)</h3>
-<p>Force equals mass times acceleration.</p>
-<h3>Third Law (Action-Reaction)</h3>
-<p>For every action, there is an equal and opposite reaction.</p>`,
-    tags: ['physics', 'mechanics'],
-    isFavorite: true,
-    createdAt: new Date(Date.now() - 259200000),
-    updatedAt: new Date(Date.now() - 172800000),
-  },
-];
-
-// Simplified rich text toolbar buttons
-const toolbarButtons = [
-  { icon: 'B', command: 'bold', title: 'Bold (Ctrl+B)' },
-  { icon: 'I', command: 'italic', title: 'Italic (Ctrl+I)' },
-  { icon: 'U', command: 'underline', title: 'Underline (Ctrl+U)' },
-  { icon: 'H1', command: 'formatBlock', value: 'h1', title: 'Heading 1' },
-  { icon: 'H2', command: 'formatBlock', value: 'h2', title: 'Heading 2' },
-  { icon: '• ', command: 'insertUnorderedList', title: 'Bullet List' },
-  { icon: '1.', command: 'insertOrderedList', title: 'Numbered List' },
-  { icon: '""', command: 'formatBlock', value: 'blockquote', title: 'Quote' },
-  { icon: '</>', command: 'formatBlock', value: 'pre', title: 'Code Block' },
-];
+function sanitizePlainText(text: string): string {
+  return DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+}
 
 export default function NotesPage() {
-  const [notes, setNotes] = useState<Note[]>(mockNotes);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState('');
-  const [editTitle, setEditTitle] = useState('');
+  const { user } = useAuthStore();
+
+  const [notes, setNotes] = useState<NoteMaterial[]>([]);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const sanitizeHtml = (html: string) =>
-    DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
+  const [isDirty, setIsDirty] = useState(false);
 
-  // Filter notes
-  const filteredNotes = notes.filter((note) =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftTagsInput, setDraftTagsInput] = useState('');
+  const [previewHtml, setPreviewHtml] = useState('');
+
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const selectedNote = useMemo(
+    () => notes.find((note) => note.id === selectedNoteId) || null,
+    [notes, selectedNoteId]
   );
 
-  // Select note
-  const handleSelectNote = (note: Note) => {
-    setSelectedNote(note);
-    setEditTitle(note.title);
-    setEditContent(sanitizeHtml(note.content));
-    setIsEditing(false);
-  };
+  const filteredNotes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-  // Create new note
-  const handleNewNote = () => {
-    const newNote: Note = {
-      id: Date.now().toString(),
-      title: 'Untitled Note',
-      content: '<p>Start writing...</p>',
-      tags: [],
-      isFavorite: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setNotes((prev) => [newNote, ...prev]);
-    handleSelectNote(newNote);
+    return notes.filter((note) => {
+      const matchesFavorites = !showFavoritesOnly || note.isFavorite;
+      if (!matchesFavorites) return false;
+
+      if (!query) return true;
+
+      const titleMatch = note.title.toLowerCase().includes(query);
+      const tagMatch = note.tags.some((tag) => tag.toLowerCase().includes(query));
+      const contentMatch = stripHtml(note.content).toLowerCase().includes(query);
+      return titleMatch || tagMatch || contentMatch;
+    });
+  }, [notes, searchQuery, showFavoritesOnly]);
+
+  const favoriteCount = useMemo(() => notes.filter((note) => note.isFavorite).length, [notes]);
+
+  const loadNotes = useCallback(async () => {
+    if (!user?.uid) {
+      setNotes([]);
+      setSelectedNoteId(null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const fetchedNotes = await getUserNotes(user.uid);
+      setNotes(fetchedNotes);
+      setSelectedNoteId((prev) => prev || fetchedNotes[0]?.id || null);
+    } catch (error) {
+      console.error('Failed to load notes:', error);
+      toast.error('Failed to load notes');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid]);
+
+  const syncEditorWithNote = useCallback((note: NoteMaterial | null) => {
+    const safeContent = sanitizeHtml(note?.content || EMPTY_NOTE_HTML);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = safeContent;
+    }
+    setDraftTitle(note?.title || '');
+    setDraftTagsInput((note?.tags || []).join(', '));
+    setPreviewHtml(safeContent);
+    setIsDirty(false);
     setIsEditing(true);
-  };
+  }, []);
 
-  // Save note
-  const handleSaveNote = () => {
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  useEffect(() => {
+    syncEditorWithNote(selectedNote);
+  }, [selectedNote, syncEditorWithNote]);
+
+  const handleSelectNote = useCallback(
+    (note: NoteMaterial) => {
+      if (selectedNoteId === note.id) return;
+      setSelectedNoteId(note.id);
+      setShowSidebar(true);
+    },
+    [selectedNoteId]
+  );
+
+  const handleCreateNote = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const created = await createNote(user.uid, {
+        title: 'Untitled Note',
+        content: EMPTY_NOTE_HTML,
+        tags: [],
+      });
+
+      setNotes((prev) => [created, ...prev]);
+      setSelectedNoteId(created.id);
+      setShowSidebar(true);
+      toast.success('Note created');
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      toast.error('Failed to create note');
+    }
+  }, [user?.uid]);
+
+  const handleToggleFavorite = useCallback(
+    async (noteId: string) => {
+      const target = notes.find((note) => note.id === noteId);
+      if (!target) return;
+
+      const nextFavorite = !target.isFavorite;
+      setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, isFavorite: nextFavorite } : note)));
+
+      try {
+        await toggleNoteFavorite(noteId, nextFavorite);
+      } catch (error) {
+        console.error('Failed to update favorite:', error);
+        setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, isFavorite: target.isFavorite } : note)));
+        toast.error('Failed to update favorite');
+      }
+    },
+    [notes]
+  );
+
+  const handleDeleteNote = useCallback(
+    async (noteId: string) => {
+      if (!confirm('Delete this note permanently?')) return;
+
+      const deletedIndex = notes.findIndex((note) => note.id === noteId);
+      if (deletedIndex < 0) return;
+
+      const deletedNote = notes[deletedIndex];
+      const nextSelection =
+        notes[deletedIndex + 1]?.id || notes[deletedIndex - 1]?.id || null;
+
+      setNotes((prev) => prev.filter((note) => note.id !== noteId));
+      if (selectedNoteId === noteId) {
+        setSelectedNoteId(nextSelection);
+      }
+
+      try {
+        await deleteNote(noteId);
+        toast.success('Note deleted');
+      } catch (error) {
+        console.error('Failed to delete note:', error);
+        setNotes((prev) => {
+          const restored = [...prev];
+          restored.splice(deletedIndex, 0, deletedNote);
+          return restored;
+        });
+        if (selectedNoteId === noteId) {
+          setSelectedNoteId(noteId);
+        }
+        toast.error('Failed to delete note');
+      }
+    },
+    [notes, selectedNoteId]
+  );
+
+  const handleSaveNote = useCallback(async () => {
     if (!selectedNote) return;
-    const sanitizedContent = sanitizeHtml(editContent);
-    
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === selectedNote.id
-          ? { ...note, title: editTitle, content: sanitizedContent, updatedAt: new Date() }
-          : note
-      )
-    );
-    setSelectedNote({ ...selectedNote, title: editTitle, content: sanitizedContent });
-    setEditContent(sanitizedContent);
-    setIsEditing(false);
-  };
+    const editorContent = sanitizeHtml(editorRef.current?.innerHTML || EMPTY_NOTE_HTML);
 
-  // Toggle favorite
-  const toggleFavorite = (id: string) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, isFavorite: !note.isFavorite } : note
-      )
-    );
-    if (selectedNote?.id === id) {
-      setSelectedNote({ ...selectedNote, isFavorite: !selectedNote.isFavorite });
+    const cleanTitle = draftTitle.trim() || 'Untitled Note';
+    const tags = draftTagsInput
+      .split(',')
+      .map((tag) => sanitizePlainText(tag.trim().toLowerCase()))
+      .filter(Boolean);
+
+    setIsSaving(true);
+    try {
+      await updateNote(selectedNote.id, {
+        title: cleanTitle,
+        content: editorContent,
+        tags,
+      });
+
+      setNotes((prev) =>
+        prev
+          .map((note) =>
+            note.id === selectedNote.id
+              ? {
+                  ...note,
+                  title: cleanTitle,
+                  content: editorContent,
+                  tags,
+                  updatedAt: new Date(),
+                }
+              : note
+          )
+          .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      );
+
+      setDraftTitle(cleanTitle);
+      setDraftTagsInput(tags.join(', '));
+      setPreviewHtml(editorContent);
+      setIsDirty(false);
+      toast.success('Note saved');
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      toast.error('Failed to save note');
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [draftTagsInput, draftTitle, selectedNote]);
 
-  // Delete note
-  const handleDeleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
-    if (selectedNote?.id === id) {
-      setSelectedNote(null);
+  const handleEnhanceSummary = useCallback(async () => {
+    const rawContent = stripHtml(editorRef.current?.innerHTML || '').trim();
+    if (!rawContent) {
+      toast.error('Write something first');
+      return;
     }
-  };
 
-  // Execute formatting command
-  const execCommand = (command: string, value?: string) => {
+    setIsEnhancing(true);
+    try {
+      const summary = await summarizeNotes(rawContent);
+      const safeSummaryText = sanitizePlainText(summary).replace(/\n/g, '<br/>');
+      const summaryBlock = `<h3>AI Summary</h3><p>${safeSummaryText}</p>`;
+      const currentContent = sanitizeHtml(editorRef.current?.innerHTML || EMPTY_NOTE_HTML);
+      const merged = `${currentContent}<hr/>${summaryBlock}`;
+
+      if (editorRef.current) {
+        editorRef.current.innerHTML = merged;
+      }
+
+      setPreviewHtml(merged);
+      setIsDirty(true);
+      toast.success('Summary added to your note');
+    } catch (error) {
+      console.error('Failed to summarize note:', error);
+      toast.error('AI summary failed');
+    } finally {
+      setIsEnhancing(false);
+    }
+  }, []);
+
+  const execFormatCommand = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
-  };
+    setIsDirty(true);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyboardSave = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+      if (!selectedNote || !isEditing) return;
+      event.preventDefault();
+      void handleSaveNote();
+    };
+
+    window.addEventListener('keydown', handleKeyboardSave);
+    return () => window.removeEventListener('keydown', handleKeyboardSave);
+  }, [handleSaveNote, isEditing, selectedNote]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
-      {/* Notes sidebar */}
-      <AnimatePresence>
-        {showSidebar && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 320, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex-shrink-0 flex flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden"
-          >
-            {/* Sidebar header */}
-            <div className="p-4 border-b border-dark-600/50">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold text-white">Notes</h2>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<PlusIcon className="w-4 h-4" />}
-                  onClick={handleNewNote}
-                >
-                  New
-                </Button>
-              </div>
-              <Input
-                placeholder="Search notes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
-              />
-            </div>
-
-            {/* Notes list */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {filteredNotes.map((note) => (
-                <button
-                  key={note.id}
-                  onClick={() => handleSelectNote(note)}
-                  className={cn(
-                    'w-full p-3 rounded-xl text-left transition-all',
-                    selectedNote?.id === note.id
-                      ? 'bg-neon-cyan/10 border border-neon-cyan/30'
-                      : 'hover:bg-dark-700/50 border border-transparent'
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-white line-clamp-1">
-                      {note.title}
-                    </h3>
-                    {note.isFavorite && (
-                      <StarSolidIcon className="w-4 h-4 text-neon-yellow flex-shrink-0" />
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formatSmartDate(note.updatedAt)}
-                  </p>
-                  <div className="flex gap-1 mt-2">
-                    {note.tags.slice(0, 2).map((tag) => (
-                      <Badge key={tag} variant="default" size="sm">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </button>
-              ))}
-
-              {filteredNotes.length === 0 && (
-                <div className="text-center py-8">
-                  <DocumentTextIcon className="w-10 h-10 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No notes found</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
+      <aside
+        className={cn(
+          'w-full md:w-[340px] md:flex-shrink-0 flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden',
+          showSidebar ? 'flex' : 'hidden md:flex'
         )}
-      </AnimatePresence>
+      >
+        <div className="p-4 border-b border-dark-600/50 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Notes</h2>
+              <p className="text-xs text-gray-400">{notes.length} total • {favoriteCount} starred</p>
+            </div>
+            <Button variant="primary" size="sm" leftIcon={<PlusIcon className="w-4 h-4" />} onClick={handleCreateNote}>
+              New
+            </Button>
+          </div>
 
-      {/* Editor area */}
-      <div className="flex-1 flex flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden">
+          <Input
+            placeholder="Search notes..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
+          />
+
+          <button
+            onClick={() => setShowFavoritesOnly((prev) => !prev)}
+            className={cn(
+              'w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm border transition-colors',
+              showFavoritesOnly
+                ? 'border-neon-yellow/40 bg-neon-yellow/10 text-neon-yellow'
+                : 'border-dark-600/60 bg-dark-700/40 text-gray-300 hover:text-white'
+            )}
+          >
+            <StarSolidIcon className="w-4 h-4" />
+            Starred Only
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredNotes.length === 0 ? (
+            <div className="text-center py-10">
+              <DocumentTextIcon className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">No notes found</p>
+            </div>
+          ) : (
+            filteredNotes.map((note) => (
+              <button
+                key={note.id}
+                onClick={() => handleSelectNote(note)}
+                className={cn(
+                  'w-full p-3 rounded-xl text-left transition-all border',
+                  selectedNoteId === note.id
+                    ? 'bg-neon-cyan/10 border-neon-cyan/30'
+                    : 'border-transparent hover:bg-dark-700/50'
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-medium text-white line-clamp-1">{note.title}</h3>
+                  {note.isFavorite ? (
+                    <StarSolidIcon className="w-4 h-4 text-neon-yellow flex-shrink-0" />
+                  ) : (
+                    <StarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{stripHtml(note.content) || 'Empty note'}</p>
+                <p className="text-xs text-gray-500 mt-2">{formatSmartDate(note.updatedAt)}</p>
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      <section className="flex-1 flex flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden">
         {selectedNote ? (
           <>
-            {/* Editor toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-dark-600/50">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowSidebar(!showSidebar)}
-                  className="p-2 rounded-lg hover:bg-dark-700/50 transition-colors text-gray-400 md:hidden"
-                >
-                  <ChevronLeftIcon className={cn('w-5 h-5 transition-transform', !showSidebar && 'rotate-180')} />
-                </button>
-                
-                {isEditing ? (
+            <div className="border-b border-dark-600/50 p-3 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <button
+                    onClick={() => setShowSidebar((prev) => !prev)}
+                    className="md:hidden p-2 rounded-lg hover:bg-dark-700/50 text-gray-400"
+                  >
+                    <ChevronLeftIcon className={cn('w-5 h-5 transition-transform', !showSidebar && 'rotate-180')} />
+                  </button>
                   <Input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="font-semibold text-lg"
+                    value={draftTitle}
+                    onChange={(event) => {
+                      setDraftTitle(event.target.value);
+                      setIsDirty(true);
+                    }}
+                    placeholder="Untitled Note"
+                    className="font-semibold"
                   />
-                ) : (
-                  <h2 className="text-lg font-semibold text-white">{selectedNote.title}</h2>
-                )}
-              </div>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => toggleFavorite(selectedNote.id)}
-                  className="p-2 rounded-lg hover:bg-dark-700/50 transition-colors"
-                >
-                  {selectedNote.isFavorite ? (
-                    <StarSolidIcon className="w-5 h-5 text-neon-yellow" />
-                  ) : (
-                    <StarIcon className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleToggleFavorite(selectedNote.id)}
+                    leftIcon={selectedNote.isFavorite ? <StarSolidIcon className="w-4 h-4 text-neon-yellow" /> : <StarIcon className="w-4 h-4" />}
+                  >
+                    Star
+                  </Button>
 
-                {isEditing ? (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setIsEditing(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleSaveNote}
-                    >
-                      Save
-                    </Button>
-                  </>
-                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (isEditing) {
+                        setPreviewHtml(sanitizeHtml(editorRef.current?.innerHTML || EMPTY_NOTE_HTML));
+                        setIsEditing(false);
+                        return;
+                      }
+                      setIsEditing(true);
+                    }}
+                  >
+                    {isEditing ? 'Preview' : 'Edit'}
+                  </Button>
+
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => void handleEnhanceSummary()}
+                    isLoading={isEnhancing}
+                    leftIcon={<SparklesIcon className="w-4 h-4" />}
                   >
-                    Edit
+                    Summarize
                   </Button>
-                )}
 
-                <button
-                  onClick={() => handleDeleteNote(selectedNote.id)}
-                  className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                >
-                  <TrashIcon className="w-5 h-5" />
-                </button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleSaveNote()}
+                    isLoading={isSaving}
+                    disabled={!isDirty}
+                  >
+                    Save
+                  </Button>
+
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => void handleDeleteNote(selectedNote.id)}
+                    leftIcon={<TrashIcon className="w-4 h-4" />}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
+
+              <Input
+                value={draftTagsInput}
+                onChange={(event) => {
+                  setDraftTagsInput(event.target.value);
+                  setIsDirty(true);
+                }}
+                placeholder="tags (comma separated): math, revision, finals"
+              />
             </div>
 
-            {/* Formatting toolbar (only in edit mode) */}
             {isEditing && (
-              <div className="flex items-center gap-1 p-2 border-b border-dark-600/50 overflow-x-auto">
-                {toolbarButtons.map((btn, index) => (
+              <div className="p-2 border-b border-dark-600/50 flex items-center gap-1 overflow-x-auto">
+                {toolbarButtons.map((btn) => (
                   <button
-                    key={index}
-                    onClick={() => execCommand(btn.command, btn.value)}
+                    key={`${btn.command}-${btn.label}`}
                     title={btn.title}
-                    className="px-3 py-1.5 rounded-lg hover:bg-dark-700/50 text-gray-300 hover:text-white transition-colors font-mono text-sm"
+                    onClick={() => execFormatCommand(btn.command, btn.value)}
+                    className="px-3 py-1.5 rounded-lg text-sm font-mono text-gray-300 hover:text-white hover:bg-dark-700/50 transition-colors"
                   >
-                    {btn.icon}
+                    {btn.label}
                   </button>
                 ))}
-                <div className="h-6 w-px bg-dark-600 mx-2" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<SparklesIcon className="w-4 h-4" />}
-                  className="text-neon-purple hover:text-neon-pink"
-                >
-                  AI Enhance
-                </Button>
               </div>
             )}
 
-            {/* Editor content */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-5">
               {isEditing ? (
                 <div
+                  ref={editorRef}
                   contentEditable
                   suppressContentEditableWarning
+                  onInput={() => setIsDirty(true)}
                   className="prose prose-invert prose-neon max-w-none min-h-full focus:outline-none"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(editContent) }}
-                  onInput={(e) => setEditContent(e.currentTarget.innerHTML)}
                 />
               ) : (
                 <div
                   className="prose prose-invert prose-neon max-w-none"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedNote.content) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }}
                 />
               )}
             </div>
 
-            {/* Footer with metadata */}
-            <div className="flex items-center justify-between p-3 border-t border-dark-600/50 text-xs text-gray-500">
-              <div className="flex items-center gap-4">
+            <div className="border-t border-dark-600/50 px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-3">
                 <span>Created {formatSmartDate(selectedNote.createdAt)}</span>
                 <span>Updated {formatSmartDate(selectedNote.updatedAt)}</span>
+                {isDirty && <span className="text-neon-yellow">Unsaved changes</span>}
               </div>
-              <div className="flex items-center gap-2">
-                {selectedNote.tags.map((tag) => (
-                  <Badge key={tag} variant="default" size="sm">
-                    {tag}
-                  </Badge>
-                ))}
+
+              <div className="flex flex-wrap gap-1">
+                {draftTagsInput
+                  .split(',')
+                  .map((tag) => tag.trim())
+                  .filter(Boolean)
+                  .slice(0, 6)
+                  .map((tag) => (
+                    <Badge key={tag} size="sm" variant="outline">
+                      {tag}
+                    </Badge>
+                  ))}
               </div>
             </div>
           </>
         ) : (
-          /* Empty state */
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
+          <div className="flex-1 flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center">
               <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-dark-700/50 flex items-center justify-center">
                 <DocumentTextIcon className="w-10 h-10 text-gray-500" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Select or create a note
-              </h3>
-              <p className="text-gray-400 mb-6 max-w-md">
-                Choose a note from the sidebar or create a new one to get started
-              </p>
-              <Button
-                variant="primary"
-                onClick={handleNewNote}
-                leftIcon={<PlusIcon className="w-5 h-5" />}
-              >
+              <h3 className="text-xl font-semibold text-white mb-2">Start your notes workspace</h3>
+              <p className="text-gray-400 mb-6">Create a note to capture ideas, summaries, and revision points.</p>
+              <Button variant="primary" leftIcon={<PlusIcon className="w-5 h-5" />} onClick={() => void handleCreateNote()}>
                 Create Note
               </Button>
-            </div>
+            </motion.div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

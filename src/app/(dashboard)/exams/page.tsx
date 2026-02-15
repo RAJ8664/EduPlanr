@@ -41,6 +41,13 @@ const EXAM_COLORS = [
     '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f97316',
 ];
 
+function createExamId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function formatTime12h(time: string): string {
     const [h, m] = time.split(':').map(Number);
     if (isNaN(h) || isNaN(m)) return time;
@@ -258,7 +265,7 @@ export default function ExamsPage() {
             if (!routine) return;
 
             const newExam: Exam = {
-                id: Math.random().toString(36).substring(2, 15),
+                id: createExamId(),
                 subjectName: manualExam.subjectName.trim(),
                 subjectColor: EXAM_COLORS[routine.exams.length % EXAM_COLORS.length],
                 date: manualExam.date,

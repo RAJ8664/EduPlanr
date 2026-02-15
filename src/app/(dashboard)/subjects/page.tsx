@@ -133,12 +133,10 @@ export default function SubjectsPage() {
 
             // Fetch subjects
             const userSubjects = await getUserSubjects(user.uid);
-            console.log('Fetched subjects:', userSubjects.length, userSubjects);
             setSubjects(userSubjects);
 
             // Fetch syllabi for all subjects
             const userSyllabi = await getUserSyllabi(user.uid);
-            console.log('Fetched syllabi:', userSyllabi.length);
             const syllabiMap: Record<string, { topics: SyllabusTopic[]; id: string }> = {};
             userSyllabi.forEach(s => {
                 syllabiMap[s.subjectId] = { topics: s.topics || [], id: s.id };
@@ -171,8 +169,6 @@ export default function SubjectsPage() {
 
     // Handle add subject
     const handleAddSubject = async () => {
-        console.log('handleAddSubject called. User:', user?.uid, 'Semester:', selectedSemesterId, 'Name:', newSubjectName);
-
         if (!user?.uid || !selectedSemesterId || !newSubjectName.trim()) {
             console.error('Missing invalid data for creating subject');
             toast.error('Please fill in all required fields');
@@ -190,14 +186,10 @@ export default function SubjectsPage() {
                 creditHours: newSubjectCredits ? parseInt(newSubjectCredits) : 0,
                 progress: 0,
             };
-            console.log('Calling createSubject with:', newSubjectData);
-
             const newSubject = await createSubject(user.uid, newSubjectData);
-            console.log('Subject created:', newSubject);
 
             try {
                 // Create empty syllabus for the subject
-                console.log('Creating syllabus for subject:', newSubject.id);
                 const syllabus = await createSyllabus(user.uid, {
                     subjectId: newSubject.id,
                     title: `${newSubjectName} Syllabus`,
@@ -208,7 +200,6 @@ export default function SubjectsPage() {
                     totalTopics: 0,
                     completedTopics: 0,
                 });
-                console.log('Syllabus created:', syllabus);
                 setSyllabi(prev => ({ ...prev, [newSubject.id]: { topics: [], id: syllabus.id } }));
             } catch (syllabusError) {
                 console.error('Error creating syllabus, but subject was created:', syllabusError);

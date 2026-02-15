@@ -31,6 +31,11 @@ Remember: You're here to empower students to learn, not just give answers. Guide
 // List of models to try in order of preference (Verified Jan 2026)
 const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash"];
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error || 'Unknown error');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { messages, userMessage } = await request.json();
@@ -43,9 +48,10 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({
-        content: "I am currently running in **Demo Mode** because the `GEMINI_API_KEY` environment variable is not configured on the server.\n\nTo enable my full AI capabilities (Powered by Google Gemini), please add your Gemini API key to the project's environment variables.\n\nIn the meantime, feel free to explore the other features of EduPlanr! 🚀"
-      });
+      return NextResponse.json(
+        { error: 'AI tutor is not configured on the server. Set GEMINI_API_KEY or GOOGLE_API_KEY.' },
+        { status: 503 }
+      );
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -71,7 +77,6 @@ export async function POST(request: NextRequest) {
 
     for (const modelName of MODELS_TO_TRY) {
       try {
-        console.log(`Attempting to use model: ${modelName}`);
         const model = genAI.getGenerativeModel({ model: modelName });
 
         const chat = model.startChat({
@@ -89,12 +94,12 @@ export async function POST(request: NextRequest) {
         // If successful, return immediately
         return NextResponse.json({ content });
 
-      } catch (error: any) {
-        console.warn(`Model ${modelName} failed:`, error.message);
+      } catch (error: unknown) {
         lastError = error;
 
         // Check for specific fatal errors
-        if (error.message.includes('API key') || error.message.includes('location')) {
+        const message = getErrorMessage(error);
+        if (message.includes('API key') || message.includes('location')) {
           // If key is invalid or location blocked, stop trying others
           break;
         }
@@ -102,21 +107,16 @@ export async function POST(request: NextRequest) {
     }
 
     // If all failed, return the error to the user as a chat message for debugging
-    console.error('All Gemini models failed. Last error:', lastError);
+    const detail = lastError ? ` ${getErrorMessage(lastError)}` : '';
+    return NextResponse.json(
+      { error: `All available Gemini models failed.${detail}` },
+      { status: 502 }
+    );
 
-    let errorMessage = "I'm having trouble connecting to my brain right now.";
-    if (lastError?.message?.includes('404')) {
-      errorMessage += "\n\n**Debug Info:** The API returned 404 (Not Found). This usually means either:\n1. The API Key is from a project that doesn't have the Generative Language API enabled.\n2. The model is not available in your region.\n3. The API Key is invalid.";
-    } else if (lastError?.message) {
-      errorMessage += `\n\n**Error Details:** ${lastError.message}`;
-    }
-
-    return NextResponse.json({
-      content: errorMessage + "\n\nPlease check your server logs for more details."
-    }); // Return 200 so the client displays this message
-
-  } catch (error: any) {
-    console.error('Gemini Chat API error:', error);
-    return NextResponse.json({ content: `**System Error:** ${error.message}` });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: `Tutor request failed: ${getErrorMessage(error)}` },
+      { status: 500 }
+    );
   }
 }
