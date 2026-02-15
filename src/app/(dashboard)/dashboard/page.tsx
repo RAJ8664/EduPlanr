@@ -21,7 +21,7 @@ import {
   SparklesIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { Card, CardHeader, Button, ProgressBar, CircularProgress, Badge } from '@/components/ui';
+import { Card, CardHeader, Button, ProgressBar, CircularProgress, Badge, PageHero } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { useTimer } from '@/hooks';
 import { formatTimer, getGreeting } from '@/lib/utils';
@@ -133,41 +133,39 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">
-            {getGreeting()}, {profile?.displayName?.split(' ')[0] || 'Student'}! 👋
-          </h1>
-          <p className="text-gray-400 mt-1">
-            {currentTime.toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            leftIcon={<SparklesIcon className="w-5 h-5" />}
-            onClick={() => router.push('/tutor')}
-          >
-            Ask AI Tutor
-          </Button>
-          <Button
-            variant="primary"
-            leftIcon={<PlayIcon className="w-5 h-5" />}
-            onClick={() => timer.startStudySession(45)}
-          >
-            Start Session
-          </Button>
-        </div>
-      </motion.div>
+      <PageHero
+        tone="blue"
+        icon={ChartBarIcon}
+        title={`${getGreeting()}, ${profile?.displayName?.split(' ')[0] || 'Student'}!`}
+        subtitle={currentTime.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        })}
+        metrics={[
+          { label: 'Subjects', value: stats.totalSubjects },
+          { label: 'Syllabus', value: `${progressPercentage}%` },
+          { label: 'CGPA', value: stats.averageCgpa > 0 ? stats.averageCgpa.toFixed(2) : 'N/A' },
+        ]}
+        action={
+          <>
+            <Button
+              variant="secondary"
+              leftIcon={<SparklesIcon className="w-5 h-5" />}
+              onClick={() => router.push('/tutor')}
+            >
+              Ask AI Tutor
+            </Button>
+            <Button
+              variant="primary"
+              leftIcon={<PlayIcon className="w-5 h-5" />}
+              onClick={() => timer.startStudySession(45)}
+            >
+              Start Session
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

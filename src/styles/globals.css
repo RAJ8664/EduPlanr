@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,6 +11,11 @@
     --color-neon-magenta: 255 0 255;
     --color-neon-purple: 191 0 255;
     --color-accent-primary: 99 102 241;
+    --surface-main: 6 11 19;
+    --surface-elevated: 15 24 40;
+    --surface-card: 19 30 50;
+    --text-primary: 245 247 255;
+    --text-secondary: 181 192 218;
   }
 
   html {
@@ -19,9 +24,11 @@
 
   body {
     @apply bg-dark-950 text-gray-100 antialiased;
-    background-image: 
-      radial-gradient(ellipse at top, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom, rgba(191, 0, 255, 0.05) 0%, transparent 50%);
+    font-family: 'Space Grotesk', 'Sora', sans-serif;
+    background:
+      radial-gradient(1000px 620px at 15% -8%, rgba(24, 144, 255, 0.18), transparent 62%),
+      radial-gradient(900px 560px at 95% 4%, rgba(16, 185, 129, 0.15), transparent 58%),
+      linear-gradient(180deg, #050912 0%, #050912 100%);
     min-height: 100vh;
   }
 
@@ -46,22 +53,59 @@
 
   /* Focus styles */
   *:focus-visible {
-    @apply outline-none ring-2 ring-neon-cyan ring-offset-2 ring-offset-dark-900;
+    @apply outline-none ring-2 ring-cyan-300/70 ring-offset-2 ring-offset-dark-900;
   }
 
   /* Selection */
   ::selection {
-    @apply bg-accent-primary/30 text-white;
+    @apply bg-cyan-300/30 text-white;
   }
 }
 
 @layer components {
+  .app-shell {
+    @apply relative isolate;
+  }
+
+  .app-shell::before,
+  .app-shell::after {
+    content: '';
+    @apply pointer-events-none absolute inset-0 -z-10;
+  }
+
+  .app-shell::before {
+    background:
+      radial-gradient(640px 300px at 10% 0%, rgba(56, 189, 248, 0.2), transparent 70%),
+      radial-gradient(560px 260px at 90% 10%, rgba(52, 211, 153, 0.17), transparent 68%);
+  }
+
+  .app-shell::after {
+    background-image:
+      linear-gradient(rgba(80, 106, 148, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80, 106, 148, 0.08) 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.35;
+    mask-image: linear-gradient(to bottom, black 35%, transparent 100%);
+  }
+
+  .panel-surface {
+    @apply rounded-2xl border border-white/10 bg-dark-800/65 backdrop-blur-xl;
+    box-shadow:
+      0 18px 45px rgba(2, 8, 20, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .section-title {
+    font-family: 'Sora', 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
   /* Glass morphism card */
   .glass-card {
-    @apply bg-dark-800/50 backdrop-blur-xl border border-dark-600/50 rounded-2xl;
+    @apply bg-dark-800/65 backdrop-blur-xl border border-white/10 rounded-2xl;
     box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 16px 40px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* Neon border effect */
@@ -83,15 +127,15 @@
   /* Gradient text */
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #00f5ff 0%, #bf00ff 50%, #ff0080 100%);
+    background-image: linear-gradient(135deg, #38bdf8 0%, #60a5fa 45%, #34d399 100%);
   }
 
   /* Primary button with neon glow */
   .btn-primary {
     @apply relative px-6 py-3 font-semibold rounded-xl overflow-hidden;
-    @apply bg-gradient-to-r from-accent-primary to-accent-secondary;
+    @apply bg-gradient-to-r from-cyan-400 to-blue-500;
     @apply text-white transition-all duration-300;
-    @apply hover:shadow-neon-purple hover:scale-105;
+    @apply hover:shadow-neon-cyan hover:scale-105;
     @apply active:scale-95;
   }
 
@@ -108,9 +152,9 @@
   /* Secondary button */
   .btn-secondary {
     @apply px-6 py-3 font-semibold rounded-xl;
-    @apply bg-dark-700 border border-dark-500;
+    @apply bg-dark-700/80 border border-white/10;
     @apply text-gray-200 transition-all duration-300;
-    @apply hover:bg-dark-600 hover:border-neon-cyan/50;
+    @apply hover:bg-dark-600 hover:border-cyan-300/45;
     @apply active:scale-95;
   }
 
@@ -118,18 +162,18 @@
   .btn-ghost {
     @apply px-4 py-2 font-medium rounded-lg;
     @apply text-gray-300 transition-all duration-200;
-    @apply hover:bg-dark-700/50 hover:text-white;
+    @apply hover:bg-dark-700/65 hover:text-white;
     @apply active:scale-95;
   }
 
   /* Input field */
   .input-field {
     @apply w-full px-4 py-3 rounded-xl;
-    @apply bg-dark-800 border border-dark-600;
+    @apply bg-dark-800/80 border border-white/10;
     @apply text-gray-100 placeholder-gray-500;
     @apply transition-all duration-200;
-    @apply focus:border-neon-cyan/50 focus:ring-2 focus:ring-neon-cyan/20;
-    @apply hover:border-dark-500;
+    @apply focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20;
+    @apply hover:border-white/20;
   }
 
   /* Animated underline */
@@ -151,8 +195,8 @@
   /* Cyber grid background */
   .cyber-grid {
     background-image: 
-      linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+      linear-gradient(rgba(73, 104, 145, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(73, 104, 145, 0.12) 1px, transparent 1px);
     background-size: 50px 50px;
   }
 
@@ -163,7 +207,7 @@
 
   .progress-bar-fill {
     @apply h-full rounded-full transition-all duration-500 ease-out;
-    background: linear-gradient(90deg, #00f5ff, #bf00ff);
+    background: linear-gradient(90deg, #22d3ee, #3b82f6);
   }
 
   /* Badge */
@@ -173,15 +217,15 @@
   }
 
   .badge-neon {
-    @apply bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30;
+    @apply bg-cyan-400/10 text-cyan-200 border-cyan-300/30;
   }
 
   .badge-purple {
-    @apply bg-neon-purple/10 text-neon-purple border-neon-purple/30;
+    @apply bg-indigo-400/10 text-indigo-200 border-indigo-300/30;
   }
 
   .badge-green {
-    @apply bg-neon-green/10 text-neon-green border-neon-green/30;
+    @apply bg-emerald-400/10 text-emerald-200 border-emerald-300/30;
   }
 
   /* Card hover effect */

@@ -21,7 +21,7 @@ import {
     PencilIcon,
     CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { Card, Button, Input, Badge, Modal } from '@/components/ui';
+import { Card, Button, Input, Badge, Modal, PageHero } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { ExamRoutine, Exam } from '@/types';
 import { useAuthStore } from '@/store';
@@ -326,27 +326,26 @@ export default function ExamsPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-            >
-                <div>
-                    <h1 className="text-3xl font-bold text-white font-display">Exam Routine</h1>
-                    <p className="text-gray-400 mt-1">
-                        {routines.length} routine{routines.length !== 1 ? 's' : ''} • {totalExams} exam{totalExams !== 1 ? 's' : ''} total
-                    </p>
-                </div>
-
-                <Button
-                    variant="primary"
-                    leftIcon={<PlusIcon className="w-5 h-5" />}
-                    onClick={() => setIsAddModalOpen(true)}
-                >
-                    Add Exam Routine
-                </Button>
-            </motion.div>
+            <PageHero
+                tone="amber"
+                icon={ClipboardDocumentListIcon}
+                title="Exam Routine"
+                subtitle="Plan exam windows, sync reminders, and keep every assessment visible."
+                metrics={[
+                    { label: 'Routines', value: routines.length },
+                    { label: 'Total Exams', value: totalExams },
+                    { label: 'Upcoming', value: upcomingExams },
+                ]}
+                action={
+                    <Button
+                        variant="primary"
+                        leftIcon={<PlusIcon className="w-5 h-5" />}
+                        onClick={() => setIsAddModalOpen(true)}
+                    >
+                        Add Exam Routine
+                    </Button>
+                }
+            />
 
             {/* Stats */}
             <motion.div

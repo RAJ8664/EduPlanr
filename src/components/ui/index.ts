@@ -12,3 +12,4 @@ export * from './Badge';
 export * from './Avatar';
 export * from './Loading';
 export { Spinner as Loading } from './Loading';
+export * from './PageHero';

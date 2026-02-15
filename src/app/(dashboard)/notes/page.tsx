@@ -19,7 +19,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
-import { Badge, Button, Input } from '@/components/ui';
+import { Badge, Button, Input, PageHero } from '@/components/ui';
 import { cn, formatSmartDate, stripHtml } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { NoteMaterial, createNote, deleteNote, getUserNotes, toggleNoteFavorite, updateNote } from '@/services/notesService';
@@ -331,7 +331,25 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
+    <div className="space-y-4">
+      <PageHero
+        tone="emerald"
+        icon={DocumentTextIcon}
+        title="Notes"
+        subtitle="Capture ideas fast, organize by tags, and summarize with AI support."
+        metrics={[
+          { label: 'Total', value: notes.length },
+          { label: 'Starred', value: favoriteCount },
+          { label: 'Visible', value: filteredNotes.length },
+        ]}
+        action={
+          <Button variant="primary" leftIcon={<PlusIcon className="w-4 h-4" />} onClick={handleCreateNote}>
+            New Note
+          </Button>
+        }
+      />
+
+      <div className="flex h-[calc(100vh-14.5rem)] gap-4">
       <aside
         className={cn(
           'w-full md:w-[340px] md:flex-shrink-0 flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden',
@@ -561,6 +579,7 @@ export default function NotesPage() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

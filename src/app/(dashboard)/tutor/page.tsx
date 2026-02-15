@@ -17,7 +17,7 @@ import {
   SparklesIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
-import { Avatar, Button, Card } from '@/components/ui';
+import { Avatar, Button, Card, PageHero } from '@/components/ui';
 import { cn, formatSmartDate, parseErrorMessage } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { ChatMessage, Conversation } from '@/types';
@@ -282,30 +282,33 @@ export default function TutorPage() {
       </Card>
 
       <div className="flex flex-col gap-4 min-h-0">
-        <div className="flex items-center justify-between flex-shrink-0">
-          <div>
-            <h1 className="text-3xl font-bold text-white font-display flex items-center gap-3">
-              <SparklesIcon className="w-8 h-8 text-neon-cyan" />
-              Smart Tutor
-            </h1>
-            <p className="text-gray-400 mt-1">Persistent AI tutor chat with real conversation history</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" leftIcon={<PlusIcon className="w-4 h-4" />} onClick={handleNewChat}>
-              New Chat
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<TrashIcon className="w-4 h-4" />}
-              onClick={() => void handleDeleteActiveConversation()}
-              disabled={!activeConversationId}
-            >
-              Delete
-            </Button>
-          </div>
-        </div>
+        <PageHero
+          tone="violet"
+          icon={SparklesIcon}
+          title="Smart Tutor"
+          subtitle="Persistent AI tutor chat with real conversation history."
+          metrics={[
+            { label: 'Chats', value: conversations.length },
+            { label: 'Messages', value: messages.length },
+            { label: 'Mode', value: isTyping ? 'Typing' : 'Ready' },
+          ]}
+          action={
+            <>
+              <Button variant="secondary" size="sm" leftIcon={<PlusIcon className="w-4 h-4" />} onClick={handleNewChat}>
+                New Chat
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<TrashIcon className="w-4 h-4" />}
+                onClick={() => void handleDeleteActiveConversation()}
+                disabled={!activeConversationId}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        />
 
         <Card className="flex-1 flex flex-col min-h-0 overflow-hidden border-dark-600/50 bg-dark-800/50">
           <div className="p-3 border-b border-dark-600/50 flex flex-wrap gap-2">

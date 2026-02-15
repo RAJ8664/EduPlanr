@@ -15,7 +15,7 @@ import {
     TrashIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
+import { Card, Button, Input, Badge, Modal, Progress, PageHero } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { Subject, SubjectStatus, SyllabusTopic } from '@/types';
 import { useAuthStore, useSubjectsStore } from '@/store';
@@ -380,6 +380,13 @@ export default function SubjectsPage() {
         return { total: semesterSubjects.length, passed, failed, ongoing, avgCgpa };
     };
 
+    const handleOpenAddSubjectModal = () => {
+        const fallbackSemesterId = expandedSemester || semesters[0]?.id || null;
+        setSelectedSemesterId(fallbackSemesterId);
+        setModalMode('manual');
+        setIsAddSubjectModalOpen(true);
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -390,19 +397,26 @@ export default function SubjectsPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-            >
-                <div>
-                    <h1 className="text-3xl font-bold text-white font-display">My Subjects</h1>
-                    <p className="text-gray-400 mt-1">
-                        {subjects.length} subjects across {semesters.length} semesters
-                    </p>
-                </div>
-            </motion.div>
+            <PageHero
+                tone="blue"
+                icon={AcademicCapIcon}
+                title="My Subjects"
+                subtitle="Track courses, grades, and semester progress in one place"
+                metrics={[
+                    { label: 'Subjects', value: subjects.length },
+                    { label: 'Semesters', value: semesters.length },
+                    { label: 'Passed', value: subjects.filter((subject) => subject.status === 'passed').length },
+                ]}
+                action={
+                    <Button
+                        variant="primary"
+                        leftIcon={<PlusIcon className="w-5 h-5" />}
+                        onClick={handleOpenAddSubjectModal}
+                    >
+                        Add Subject
+                    </Button>
+                }
+            />
 
             {/* Overall Stats */}
             <motion.div

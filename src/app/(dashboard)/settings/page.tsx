@@ -21,7 +21,7 @@ import {
   ArrowRightOnRectangleIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
-import { Card, CardHeader, Button, Input, Badge, Avatar } from '@/components/ui';
+import { Card, CardHeader, Button, Input, Badge, Avatar, PageHero } from '@/components/ui';
 import { cn, parseErrorMessage } from '@/lib/utils';
 import { useAuthStore, useUIStore } from '@/store';
 import {
@@ -939,14 +939,17 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h1 className="text-3xl font-bold text-white font-display">Settings</h1>
-        <p className="text-gray-400 mt-1">Manage your account and preferences</p>
-      </motion.div>
+      <PageHero
+        tone="blue"
+        icon={ShieldCheckIcon}
+        title="Settings"
+        subtitle="Manage your account, notifications, study behavior, and privacy controls."
+        metrics={[
+          { label: 'Sections', value: settingSections.length },
+          { label: 'Draft Changes', value: isDirty ? 'Unsaved' : 'Saved' },
+          { label: 'Theme', value: appearance.theme },
+        ]}
+      />
 
       {/* Settings layout */}
       <div className="flex flex-col lg:flex-row gap-6">

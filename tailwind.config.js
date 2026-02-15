@@ -39,8 +39,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Orbitron', 'sans-serif'],
+        sans: ['Space Grotesk', 'Sora', 'sans-serif'],
+        display: ['Sora', 'Space Grotesk', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       boxShadow: {

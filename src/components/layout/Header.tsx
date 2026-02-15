@@ -95,8 +95,8 @@ export function Header() {
     <header
       className={cn(
         'fixed top-0 right-0 h-16 z-30',
-        'bg-dark-900/80 backdrop-blur-xl border-b border-dark-700/50',
-        'flex items-center justify-between px-6',
+        'bg-dark-900/70 backdrop-blur-xl border-b border-white/10',
+        'flex items-center justify-between px-4 md:px-6',
         'transition-all duration-300',
         sidebarCollapsed ? 'left-20' : 'left-[260px]'
       )}
@@ -104,8 +104,8 @@ export function Header() {
       {/* Left section - Greeting */}
       <div className="flex items-center gap-4">
         <div>
-          <p className="text-sm text-gray-400">{getGreeting()}</p>
-          <h1 className="text-lg font-semibold text-white">
+          <p className="text-xs uppercase tracking-[0.16em] text-cyan-200/80">{getGreeting()}</p>
+          <h1 className="text-lg font-semibold text-white section-title">
             {profile?.displayName || 'Student'}
           </h1>
         </div>
@@ -129,7 +129,7 @@ export function Header() {
                     placeholder="Search materials, notes..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-dark-800 border border-dark-600 text-gray-100 placeholder-gray-500 text-sm focus:border-neon-cyan/50 focus:outline-none"
+                    className="w-full px-4 py-2 rounded-xl bg-dark-800/90 border border-white/10 text-gray-100 placeholder-gray-400 text-sm focus:border-cyan-300/50 focus:outline-none"
                     autoFocus
                   />
                 </form>
@@ -141,7 +141,7 @@ export function Header() {
             variant="ghost"
             size="icon"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className="text-gray-400 hover:text-white"
+            className="text-gray-300 hover:text-white"
           >
             <MagnifyingGlassIcon className="w-5 h-5" />
           </Button>
@@ -152,7 +152,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="text-gray-400 hover:text-white"
+          className="text-gray-300 hover:text-white"
         >
           {theme === 'dark' ? (
             <SunIcon className="w-5 h-5" />
@@ -167,11 +167,11 @@ export function Header() {
             variant="ghost"
             size="icon"
             onClick={() => router.push('/notifications')}
-            className="text-gray-400 hover:text-white"
+            className="text-gray-300 hover:text-white"
           >
             <BellIcon className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-neon-pink text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -179,13 +179,13 @@ export function Header() {
         </div>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-dark-600" />
+        <div className="hidden md:block w-px h-8 bg-white/10" />
 
         {/* User menu */}
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-dark-700/50 transition-colors"
+            className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-colors"
           >
             <Avatar
               src={profile?.photoURL}
@@ -207,7 +207,7 @@ export function Header() {
                 className="absolute right-0 top-full mt-2 w-56 glass-card p-2 z-50"
               >
                 {/* User info */}
-                <div className="px-3 py-2 border-b border-dark-600/50 mb-2">
+                <div className="px-3 py-2 border-b border-white/10 mb-2">
                   <p className="text-sm font-medium text-white truncate">
                     {profile?.displayName || 'User'}
                   </p>
@@ -222,7 +222,7 @@ export function Header() {
                     setIsUserMenuOpen(false);
                     router.push('/profile');
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-dark-700/50 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
                 >
                   <UserCircleIcon className="w-5 h-5" />
                   <span className="text-sm">Profile</span>
@@ -233,13 +233,13 @@ export function Header() {
                     setIsUserMenuOpen(false);
                     router.push('/settings');
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-dark-700/50 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
                 >
                   <Cog6ToothIcon className="w-5 h-5" />
                   <span className="text-sm">Settings</span>
                 </button>
 
-                <div className="border-t border-dark-600/50 my-2" />
+                <div className="border-t border-white/10 my-2" />
 
                 <button
                   onClick={handleSignOut}

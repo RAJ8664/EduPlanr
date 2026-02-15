@@ -16,7 +16,7 @@ import {
     PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import { Button, Input, Modal } from '@/components/ui';
+import { Button, Input, Modal, PageHero } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { RoutineBlock, RoutineCategory } from '@/types';
 import { useAuthStore } from '@/store';
@@ -250,27 +250,33 @@ export default function RoutinePage() {
 
     return (
         <div className="max-w-5xl mx-auto space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold font-display">
-                        <span className="gradient-text">My Routine</span>
-                    </h1>
-                    <p className="text-gray-400 mt-1">
-                        {sortedBlocks.length} activities today • {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
-                </div>
-                <Button
-                    onClick={() => {
-                        resetForm();
-                        setIsModalOpen(true);
-                    }}
-                    className="gap-2"
-                >
-                    <PlusIcon className="w-5 h-5" />
-                    Add Block
-                </Button>
-            </div>
+            <PageHero
+                tone="emerald"
+                icon={ClockIcon}
+                title="My Routine"
+                subtitle={new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                })}
+                metrics={[
+                    { label: 'Today', value: sortedBlocks.length },
+                    { label: 'Study Hours', value: `${stats.studyHours}h` },
+                    { label: 'Total Hours', value: `${stats.totalHours}h` },
+                ]}
+                action={
+                    <Button
+                        onClick={() => {
+                            resetForm();
+                            setIsModalOpen(true);
+                        }}
+                        className="gap-2"
+                    >
+                        <PlusIcon className="w-5 h-5" />
+                        Add Block
+                    </Button>
+                }
+            />
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

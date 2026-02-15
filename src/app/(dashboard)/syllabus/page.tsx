@@ -18,7 +18,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
-import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
+import { Card, Button, Input, Badge, Modal, Progress, PageHero } from '@/components/ui';
 import { cn, formatSmartDate } from '@/lib/utils';
 import { Syllabus, SyllabusTopic, Subject } from '@/types';
 import { useAuthStore } from '@/store';
@@ -256,27 +256,26 @@ export default function SyllabusPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">Syllabus</h1>
-          <p className="text-gray-400 mt-1">
-            {syllabi.length} courses • {completedTopics}/{totalTopics} topics completed
-          </p>
-        </div>
-
-        <Button
-          variant="primary"
-          leftIcon={<PlusIcon className="w-5 h-5" />}
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          Add Course
-        </Button>
-      </motion.div>
+      <PageHero
+        tone="violet"
+        icon={BookOpenIcon}
+        title="Syllabus"
+        subtitle="Design your course map, track every topic, and stay on schedule."
+        metrics={[
+          { label: 'Courses', value: syllabi.length },
+          { label: 'Topics Done', value: `${completedTopics}/${totalTopics}` },
+          { label: 'Progress', value: `${Math.round(overallProgress)}%` },
+        ]}
+        action={
+          <Button
+            variant="primary"
+            leftIcon={<PlusIcon className="w-5 h-5" />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            Add Course
+          </Button>
+        }
+      />
 
       {/* Overall progress */}
       <motion.div

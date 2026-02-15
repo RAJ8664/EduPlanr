@@ -7,9 +7,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { UserCircleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { Card, Button, Avatar, Badge } from '@/components/ui';
+import { Card, Button, Avatar, Badge, PageHero } from '@/components/ui';
 import { useAuthStore } from '@/store';
 
 export default function ProfilePage() {
@@ -17,21 +16,24 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">Profile</h1>
-          <p className="text-gray-400 mt-1">Your account details and status</p>
-        </div>
-        <Link href="/settings">
-          <Button variant="secondary" leftIcon={<Cog6ToothIcon className="w-4 h-4" />}>
-            Edit in Settings
-          </Button>
-        </Link>
-      </motion.div>
+      <PageHero
+        tone="blue"
+        icon={UserCircleIcon}
+        title="Profile"
+        subtitle="Your account identity, access status, and preferences at a glance."
+        metrics={[
+          { label: 'Account', value: user?.isAnonymous ? 'Guest' : 'Verified' },
+          { label: 'Email', value: profile?.email || user?.email || 'No email' },
+          { label: 'Timezone', value: profile?.preferences?.timezone || 'Not set' },
+        ]}
+        action={
+          <Link href="/settings">
+            <Button variant="secondary" leftIcon={<Cog6ToothIcon className="w-4 h-4" />}>
+              Edit in Settings
+            </Button>
+          </Link>
+        }
+      />
 
       <Card className="p-6">
         <div className="flex flex-col md:flex-row md:items-center gap-6">

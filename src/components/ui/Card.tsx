@@ -16,14 +16,14 @@ interface CardProps extends HTMLMotionProps<'div'> {
 }
 
 const variantStyles = {
-  default: 'bg-dark-800/50 backdrop-blur-xl border border-dark-600/50',
-  elevated: 'bg-dark-800/70 backdrop-blur-xl border border-dark-600/30 shadow-glass',
-  bordered: 'bg-dark-900/50 backdrop-blur-xl border-2 border-dark-600',
+  default: 'bg-dark-800/65 backdrop-blur-xl border border-white/10',
+  elevated: 'bg-dark-800/80 backdrop-blur-xl border border-white/15 shadow-glass',
+  bordered: 'bg-dark-900/60 backdrop-blur-xl border border-cyan-300/30',
   gradient: `
-    bg-gradient-to-br from-dark-800/80 to-dark-900/80
-    backdrop-blur-xl border border-dark-600/30
+    bg-gradient-to-br from-dark-800/85 via-dark-850/80 to-dark-900/90
+    backdrop-blur-xl border border-white/10
   `,
-  glow: 'bg-dark-800/50 backdrop-blur-xl border border-dark-600/50',
+  glow: 'bg-dark-800/70 backdrop-blur-xl border border-white/10',
 };
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
@@ -56,10 +56,10 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <motion.div
         ref={ref}
         className={cn(
-          'rounded-2xl p-6',
+          'rounded-2xl p-5 md:p-6',
           variantStyles[variant],
           getGlowClass(),
-          hoverable && 'transition-all duration-300 hover:translate-y-[-4px] hover:shadow-glow cursor-pointer',
+          hoverable && 'transition-all duration-300 hover:-translate-y-1.5 hover:border-white/20 hover:shadow-glow cursor-pointer',
           neonBorder && 'neon-border',
           className
         )}
@@ -90,14 +90,14 @@ export function CardHeader({ title, subtitle, action, icon, className }: CardHea
     <div className={cn('flex items-start justify-between mb-4', className)}>
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="p-2 rounded-xl bg-dark-700/50 text-neon-cyan">
+          <div className="p-2 rounded-xl bg-white/5 text-cyan-200 border border-white/10">
             {icon}
           </div>
         )}
         <div>
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+          <h3 className="text-lg font-semibold text-white section-title">{title}</h3>
           {subtitle && (
-            <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
+            <p className="text-sm text-gray-300/80 mt-0.5">{subtitle}</p>
           )}
         </div>
       </div>

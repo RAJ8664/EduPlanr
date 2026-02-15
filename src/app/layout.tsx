@@ -73,18 +73,18 @@ export default function RootLayout({
             style: {
               background: '#1a2332',
               color: '#f3f4f6',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
               borderRadius: '12px',
             },
             success: {
               iconTheme: {
-                primary: '#00ff88',
+                primary: '#34d399',
                 secondary: '#1a2332',
               },
             },
             error: {
               iconTheme: {
-                primary: '#ff0080',
+                primary: '#fb7185',
                 secondary: '#1a2332',
               },
             },

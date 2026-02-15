@@ -22,33 +22,33 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'size' | 'children
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary: `
-    bg-gradient-to-r from-accent-primary to-accent-secondary
-    text-white font-semibold
-    hover:shadow-neon-purple hover:scale-[1.02]
+    bg-gradient-to-r from-cyan-400 to-blue-500
+    text-dark-900 font-semibold
+    hover:shadow-neon-cyan hover:scale-[1.02]
     active:scale-[0.98]
   `,
   secondary: `
-    bg-dark-700 border border-dark-500
+    bg-dark-700/80 border border-white/10
     text-gray-200
-    hover:bg-dark-600 hover:border-neon-cyan/50
+    hover:bg-dark-600 hover:border-cyan-300/45 hover:text-white
     active:scale-[0.98]
   `,
   ghost: `
     bg-transparent
     text-gray-300
-    hover:bg-dark-700/50 hover:text-white
+    hover:bg-white/5 hover:text-white
     active:scale-[0.98]
   `,
   danger: `
-    bg-red-600/20 border border-red-500/50
-    text-red-400
-    hover:bg-red-600/30 hover:border-red-500
+    bg-rose-600/15 border border-rose-400/40
+    text-rose-300
+    hover:bg-rose-600/25 hover:border-rose-300/60
     active:scale-[0.98]
   `,
   outline: `
-    bg-transparent border border-dark-500
+    bg-transparent border border-white/15
     text-gray-300
-    hover:border-neon-cyan/50 hover:text-neon-cyan
+    hover:border-cyan-300/45 hover:text-cyan-200
     active:scale-[0.98]
   `,
 };
@@ -83,7 +83,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         className={cn(
           'relative inline-flex items-center justify-center gap-2',
           'font-medium transition-all duration-200',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-dark-900',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-900',
           'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100',
           variantStyles[variant],
           sizeStyles[size],

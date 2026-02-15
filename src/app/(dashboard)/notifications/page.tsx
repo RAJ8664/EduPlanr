@@ -6,9 +6,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { BellIcon, CheckIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { Card, Button, Badge } from '@/components/ui';
+import { Card, Button, Badge, PageHero } from '@/components/ui';
 import { useAuthStore, useNotificationsStore } from '@/store';
 import { formatSmartDate } from '@/lib/utils';
 import {
@@ -79,39 +78,39 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">Notifications</h1>
-          <p className="text-gray-400 mt-1">
-            {sorted.length} total • {unreadCount} unread
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<CheckIcon className="w-4 h-4" />}
-            onClick={handleMarkAllRead}
-            disabled={unreadCount === 0 || isWorking}
-          >
-            Mark All Read
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            leftIcon={<TrashIcon className="w-4 h-4" />}
-            onClick={handleClearAll}
-            disabled={sorted.length === 0 || isWorking}
-          >
-            Clear All
-          </Button>
-        </div>
-      </motion.div>
+      <PageHero
+        tone="rose"
+        icon={BellIcon}
+        title="Notifications"
+        subtitle="See reminders, deadlines, and system updates in one focused feed."
+        metrics={[
+          { label: 'Total', value: sorted.length },
+          { label: 'Unread', value: unreadCount },
+          { label: 'Read', value: Math.max(0, sorted.length - unreadCount) },
+        ]}
+        action={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<CheckIcon className="w-4 h-4" />}
+              onClick={handleMarkAllRead}
+              disabled={unreadCount === 0 || isWorking}
+            >
+              Mark All Read
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              leftIcon={<TrashIcon className="w-4 h-4" />}
+              onClick={handleClearAll}
+              disabled={sorted.length === 0 || isWorking}
+            >
+              Clear All
+            </Button>
+          </>
+        }
+      />
 
       {sorted.length === 0 ? (
         <Card className="py-16 text-center">

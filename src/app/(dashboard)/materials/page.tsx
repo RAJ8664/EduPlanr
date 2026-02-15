@@ -22,7 +22,7 @@ import {
   ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
-import { Card, Button, Input, Badge, Modal } from '@/components/ui';
+import { Card, Button, Input, Badge, Modal, PageHero } from '@/components/ui';
 import { cn, formatSmartDate } from '@/lib/utils';
 import { StudyMaterial, MaterialType, Subject } from '@/types';
 import { useAuthStore } from '@/store';
@@ -170,27 +170,26 @@ export default function MaterialsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">Materials</h1>
-          <p className="text-gray-400 mt-1">
-            {materials.length} items • {materials.filter((m) => m.isFavorite).length} favorites
-          </p>
-        </div>
-
-        <Button
-          variant="primary"
-          leftIcon={<PlusIcon className="w-5 h-5" />}
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          Add Material
-        </Button>
-      </motion.div>
+      <PageHero
+        tone="emerald"
+        icon={FolderIcon}
+        title="Materials"
+        subtitle="Keep your notes, links, and files organized with quick filters and favorites."
+        metrics={[
+          { label: 'Items', value: materials.length },
+          { label: 'Favorites', value: materials.filter((material) => material.isFavorite).length },
+          { label: 'Visible', value: filteredMaterials.length },
+        ]}
+        action={
+          <Button
+            variant="primary"
+            leftIcon={<PlusIcon className="w-5 h-5" />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            Add Material
+          </Button>
+        }
+      />
 
       {/* Filters and search */}
       <motion.div

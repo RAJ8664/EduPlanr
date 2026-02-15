@@ -37,7 +37,7 @@ import {
   setMinutes,
   isValid,
 } from 'date-fns';
-import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/ui';
+import { Card, CardHeader, Button, Badge, Modal, Input, PageHero } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { StudySession, SessionType, Subject } from '@/types';
 import { useAuthStore } from '@/store';
@@ -418,32 +418,31 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-white font-display">Calendar</h1>
-          <p className="text-gray-400 mt-1">
-            Unified timeline for sessions, exams, and smart reminders
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={() => setCurrentMonth(new Date())}>
-            Today
-          </Button>
-          <Button
-            variant="primary"
-            leftIcon={<PlusIcon className="w-5 h-5" />}
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            Add Session
-          </Button>
-        </div>
-      </motion.div>
+      <PageHero
+        tone="cyan"
+        icon={ClockIcon}
+        title="Calendar"
+        subtitle="Unified timeline for sessions, exams, and smart reminders"
+        metrics={[
+          { label: 'Sessions', value: sessions.length },
+          { label: 'Exams', value: examEvents.length },
+          { label: 'Smart Tips', value: smartReminders.length },
+        ]}
+        action={
+          <>
+            <Button variant="secondary" onClick={() => setCurrentMonth(new Date())}>
+              Today
+            </Button>
+            <Button
+              variant="primary"
+              leftIcon={<PlusIcon className="w-5 h-5" />}
+              onClick={() => setIsAddModalOpen(true)}
+            >
+              Add Session
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar Grid */}
