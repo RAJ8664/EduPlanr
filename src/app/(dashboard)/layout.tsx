@@ -6,7 +6,7 @@
 'use client';
 
 import React from 'react';
-import { AuthProvider } from '@/components/providers';
+import { AuthProvider, NotificationsProvider } from '@/components/providers';
 import { MainLayout } from '@/components/layout';
 
 export default function DashboardLayout({
@@ -16,7 +16,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthProvider>
-      <MainLayout>{children}</MainLayout>
+      <NotificationsProvider>
+        <MainLayout>{children}</MainLayout>
+      </NotificationsProvider>
     </AuthProvider>
   );
 }

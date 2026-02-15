@@ -45,6 +45,7 @@ import {
   toggleSessionComplete,
 } from '@/services/sessionsService';
 import { getUserSubjects } from '@/services/subjectsService';
+import { syncReminderNotifications } from '@/services/notificationsService';
 
 const sessionTypeColors: Record<SessionType, string> = {
   study: 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30',
@@ -109,6 +110,12 @@ export default function CalendarPage() {
 
   const selectedDateSessions = selectedDate ? getSessionsForDay(selectedDate) : [];
 
+  const runReminderSync = useCallback((uid: string) => {
+    void syncReminderNotifications(uid).catch((error) => {
+      console.error('Failed to sync reminders:', error);
+    });
+  }, []);
+
   // Handlers
   const handleAddSession = async () => {
     if (!user?.uid || !selectedDate || !newSessionTitle.trim()) {
@@ -135,6 +142,7 @@ export default function CalendarPage() {
       });
 
       setSessions(prev => [...prev, newSession].sort((a, b) => a.startTime.getTime() - b.startTime.getTime()));
+      runReminderSync(user.uid);
 
       // Reset form
       setNewSessionTitle('');
@@ -150,10 +158,12 @@ export default function CalendarPage() {
   };
 
   const handleDeleteSession = async (sessionId: string) => {
+    if (!user?.uid) return;
     if (!confirm('Delete this session?')) return;
     try {
       await deleteSession(sessionId);
       setSessions(prev => prev.filter(s => s.id !== sessionId));
+      runReminderSync(user.uid);
       toast.success('Session deleted');
     } catch (error) {
       console.error('Error deleting session:', error);
@@ -162,11 +172,13 @@ export default function CalendarPage() {
   };
 
   const handleToggleComplete = async (session: StudySession) => {
+    if (!user?.uid) return;
     try {
       await toggleSessionComplete(session.id, !session.isCompleted);
       setSessions(prev =>
         prev.map(s => s.id === session.id ? { ...s, isCompleted: !s.isCompleted } : s)
       );
+      runReminderSync(user.uid);
     } catch (error) {
       console.error('Error updating session:', error);
       toast.error('Failed to update session');

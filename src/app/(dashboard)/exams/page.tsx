@@ -32,6 +32,7 @@ import {
     updateExamRoutine,
 } from '@/services/examRoutineService';
 import { processDocument } from '@/services/aiService';
+import { syncReminderNotifications } from '@/services/notificationsService';
 
 // Subject color palette for AI-generated exams
 const EXAM_COLORS = [
@@ -132,6 +133,13 @@ export default function ExamsPage() {
     );
     const pastExams = totalExams - upcomingExams;
 
+    const runReminderSync = useCallback((uid?: string) => {
+        if (!uid) return;
+        void syncReminderNotifications(uid).catch((error) => {
+            console.error('Failed to sync reminders:', error);
+        });
+    }, []);
+
     // AI extract handler
     const handleAiExtract = async () => {
         if (!aiFile && !aiText) return;
@@ -189,6 +197,7 @@ export default function ExamsPage() {
                 description: routineDescription.trim(),
                 exams: selectedExams,
             });
+            runReminderSync(user.uid);
 
             setRoutines(prev => [newRoutine, ...prev]);
             setRoutineName('');
@@ -210,6 +219,7 @@ export default function ExamsPage() {
         if (!confirm('Delete this exam routine and all its exams?')) return;
         try {
             await deleteExamRoutine(routineId);
+            runReminderSync(user?.uid);
             setRoutines(prev => prev.filter(r => r.id !== routineId));
             toast.success('Exam routine deleted');
         } catch (error) {
@@ -225,6 +235,7 @@ export default function ExamsPage() {
             if (!routine) return;
             const updatedExams = routine.exams.filter(e => e.id !== examId);
             await updateExamRoutine(routineId, { exams: updatedExams });
+            runReminderSync(user?.uid);
             setRoutines(prev => prev.map(r =>
                 r.id === routineId ? { ...r, exams: updatedExams } : r
             ));
@@ -259,6 +270,7 @@ export default function ExamsPage() {
 
             const updatedExams = [...routine.exams, newExam];
             await updateExamRoutine(addExamToRoutineId, { exams: updatedExams });
+            runReminderSync(user?.uid);
             setRoutines(prev => prev.map(r =>
                 r.id === addExamToRoutineId ? { ...r, exams: updatedExams } : r
             ));

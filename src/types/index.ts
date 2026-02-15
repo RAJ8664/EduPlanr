@@ -193,6 +193,10 @@ export interface Notification {
   isRead: boolean;
   actionUrl?: string;
   createdAt: Date;
+  scheduledFor?: Date | null;
+  deliveredAt?: Date | null;
+  sourceType?: 'session' | 'exam' | null;
+  sourceId?: string | null;
 }
 
 export type NotificationType = 'reminder' | 'achievement' | 'system' | 'deadline';

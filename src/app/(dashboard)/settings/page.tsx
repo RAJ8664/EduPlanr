@@ -97,7 +97,7 @@ export default function SettingsPage() {
   // Notification settings
   const [notifications, setNotifications] = useState({
     emailReminders: true,
-    pushNotifications: true,
+    pushNotifications: profile?.preferences?.notifications ?? true,
     sessionReminders: true,
     weeklyReports: true,
     achievements: true,
@@ -131,6 +131,10 @@ export default function SettingsPage() {
       setDisplayName(profile.displayName || '');
       setTimezone(profile.preferences?.timezone || 'America/New_York');
       setAppearance(prev => ({ ...prev, theme: profile.preferences?.theme || 'dark' }));
+      setNotifications(prev => ({
+        ...prev,
+        pushNotifications: profile.preferences?.notifications ?? true,
+      }));
       setStudySettings(prev => ({
         ...prev,
         defaultSessionDuration: profile.preferences?.defaultStudyDuration || 45,

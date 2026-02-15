@@ -5,26 +5,77 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BellIcon, CheckIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Card, Button, Badge } from '@/components/ui';
-import { useNotificationsStore } from '@/store';
+import { useAuthStore, useNotificationsStore } from '@/store';
 import { formatSmartDate } from '@/lib/utils';
+import {
+  clearUserNotifications,
+  deleteNotificationById,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from '@/services/notificationsService';
+import toast from 'react-hot-toast';
 
 export default function NotificationsPage() {
+  const { user } = useAuthStore();
   const {
     notifications,
     unreadCount,
-    markAsRead,
-    markAllAsRead,
-    removeNotification,
-    clearAll,
   } = useNotificationsStore();
+  const [isWorking, setIsWorking] = useState(false);
 
   const sorted = [...notifications].sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
+
+  const handleMarkAllRead = async () => {
+    if (!user?.uid || unreadCount === 0) return;
+    setIsWorking(true);
+    try {
+      await markAllNotificationsAsRead(user.uid);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      toast.error('Failed to mark all as read');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!user?.uid || sorted.length === 0) return;
+    setIsWorking(true);
+    try {
+      await clearUserNotifications(user.uid);
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+      toast.error('Failed to clear notifications');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const handleMarkOneRead = async (notificationId: string) => {
+    if (!user?.uid) return;
+    try {
+      await markNotificationAsRead(user.uid, notificationId);
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      toast.error('Failed to mark as read');
+    }
+  };
+
+  const handleDeleteOne = async (notificationId: string) => {
+    if (!user?.uid) return;
+    try {
+      await deleteNotificationById(user.uid, notificationId);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      toast.error('Failed to delete notification');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -45,8 +96,8 @@ export default function NotificationsPage() {
             variant="secondary"
             size="sm"
             leftIcon={<CheckIcon className="w-4 h-4" />}
-            onClick={markAllAsRead}
-            disabled={unreadCount === 0}
+            onClick={handleMarkAllRead}
+            disabled={unreadCount === 0 || isWorking}
           >
             Mark All Read
           </Button>
@@ -54,8 +105,8 @@ export default function NotificationsPage() {
             variant="danger"
             size="sm"
             leftIcon={<TrashIcon className="w-4 h-4" />}
-            onClick={clearAll}
-            disabled={sorted.length === 0}
+            onClick={handleClearAll}
+            disabled={sorted.length === 0 || isWorking}
           >
             Clear All
           </Button>
@@ -87,7 +138,7 @@ export default function NotificationsPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => markAsRead(item.id)}
+                      onClick={() => handleMarkOneRead(item.id)}
                     >
                       Read
                     </Button>
@@ -95,7 +146,7 @@ export default function NotificationsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => removeNotification(item.id)}
+                    onClick={() => handleDeleteOne(item.id)}
                     aria-label="Delete notification"
                   >
                     <TrashIcon className="w-4 h-4 text-gray-400" />
