@@ -251,3 +251,25 @@ export interface RoutineBlock {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Exam routine types
+export interface Exam {
+  id: string;
+  subjectName: string;
+  subjectColor: string;
+  date: string;       // YYYY-MM-DD format
+  startTime: string;  // HH:mm format
+  endTime: string;    // HH:mm format
+  venue: string;
+  notes: string;
+}
+
+export interface ExamRoutine {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  exams: Exam[];
+  createdAt: Date;
+  updatedAt: Date;
+}

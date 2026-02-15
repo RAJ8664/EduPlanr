@@ -32,6 +32,7 @@ import {
   addDays,
   setHours,
   setMinutes,
+  isValid,
 } from 'date-fns';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -345,7 +346,7 @@ export default function CalendarPage() {
                       <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-400">
                         <span className="flex items-center gap-1">
                           <ClockIcon className="w-4 h-4" />
-                          {format(session.startTime, 'h:mm a')}
+                          {isValid(session.startTime) ? format(session.startTime, 'h:mm a') : 'N/A'}
                         </span>
                         {subject && (
                           <span className="flex items-center gap-1">

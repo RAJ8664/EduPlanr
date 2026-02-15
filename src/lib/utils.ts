@@ -4,7 +4,7 @@
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { format, formatDistanceToNow, isToday, isYesterday, isTomorrow } from 'date-fns';
+import { format, formatDistanceToNow, isToday, isYesterday, isTomorrow, isValid } from 'date-fns';
 
 /**
  * Merge Tailwind classes with proper precedence
@@ -14,31 +14,61 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
+ * Safely parse any date-like value (Firestore Timestamp, string, Date, etc.)
+ * Returns a valid Date or null
+ */
+export function safeParseDate(value: any): Date | null {
+  if (!value) return null;
+  // Firestore Timestamp with .toDate()
+  if (typeof value.toDate === 'function') {
+    try {
+      const d = value.toDate();
+      return isValid(d) ? d : null;
+    } catch { return null; }
+  }
+  // Raw Firestore timestamp object { seconds, nanoseconds }
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    const d = new Date(value.seconds * 1000);
+    return isValid(d) ? d : null;
+  }
+  // Already a Date
+  if (value instanceof Date) {
+    return isValid(value) ? value : null;
+  }
+  // String or number
+  const d = new Date(value);
+  return isValid(d) ? d : null;
+}
+
+/**
  * Format date for display with smart relative formatting
  */
-export function formatSmartDate(date: Date): string {
-  if (isToday(date)) {
-    return `Today at ${format(date, 'h:mm a')}`;
+export function formatSmartDate(date: any): string {
+  const parsed = safeParseDate(date);
+  if (!parsed) return '';
+
+  if (isToday(parsed)) {
+    return `Today at ${format(parsed, 'h:mm a')}`;
   }
-  if (isYesterday(date)) {
-    return `Yesterday at ${format(date, 'h:mm a')}`;
+  if (isYesterday(parsed)) {
+    return `Yesterday at ${format(parsed, 'h:mm a')}`;
   }
-  if (isTomorrow(date)) {
-    return `Tomorrow at ${format(date, 'h:mm a')}`;
+  if (isTomorrow(parsed)) {
+    return `Tomorrow at ${format(parsed, 'h:mm a')}`;
   }
-  
+
   // Within the last 7 days
-  const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  const daysAgo = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
   if (daysAgo < 7 && daysAgo > 0) {
-    return formatDistanceToNow(date, { addSuffix: true });
+    return formatDistanceToNow(parsed, { addSuffix: true });
   }
-  
+
   // Same year
-  if (date.getFullYear() === new Date().getFullYear()) {
-    return format(date, 'MMM d');
+  if (parsed.getFullYear() === new Date().getFullYear()) {
+    return format(parsed, 'MMM d');
   }
-  
-  return format(date, 'MMM d, yyyy');
+
+  return format(parsed, 'MMM d, yyyy');
 }
 
 /**
@@ -48,14 +78,14 @@ export function formatDuration(minutes: number): string {
   if (minutes < 60) {
     return `${minutes}m`;
   }
-  
+
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  
+
   if (remainingMinutes === 0) {
     return `${hours}h`;
   }
-  
+
   return `${hours}h ${remainingMinutes}m`;
 }
 
@@ -66,11 +96,11 @@ export function formatTimer(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   if (hrs > 0) {
     return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
-  
+
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
@@ -90,7 +120,7 @@ export function getRandomColor(): string {
     '#14b8a6', // teal
     '#f59e0b', // amber
   ];
-  
+
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
@@ -102,12 +132,12 @@ export function stringToColor(str: string): string {
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   const colors = [
     '#00f5ff', '#bf00ff', '#ff0080', '#00ff88', '#ff8800',
     '#6366f1', '#ec4899', '#8b5cf6', '#14b8a6', '#f59e0b',
   ];
-  
+
   return colors[Math.abs(hash) % colors.length];
 }
 
@@ -146,7 +176,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   wait: number
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout;
-  
+
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
@@ -161,7 +191,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
-  
+
   return (...args: Parameters<T>) => {
     if (!inThrottle) {
       func(...args);
@@ -237,7 +267,7 @@ export function stripHtml(html: string): string {
  */
 export function getGreeting(): string {
   const hour = new Date().getHours();
-  
+
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   if (hour < 21) return 'Good evening';
@@ -249,10 +279,10 @@ export function getGreeting(): string {
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }

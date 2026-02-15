@@ -73,7 +73,29 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
   if (!docSnap.exists()) return null;
 
   const data = docSnap.data();
-  const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
+  const safeToDate = (ts: any): Date => {
+    if (!ts) return new Date();
+    if (typeof ts.toDate === 'function') {
+      try { return ts.toDate(); } catch { return new Date(); }
+    }
+    if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+      return new Date(ts.seconds * 1000);
+    }
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const safeToDateOrNull = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (typeof ts.toDate === 'function') {
+      try { return ts.toDate(); } catch { return null; }
+    }
+    if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+      return new Date(ts.seconds * 1000);
+    }
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  };
 
   return {
     id: docSnap.id,
@@ -84,7 +106,7 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
     updatedAt: safeToDate(data.updatedAt),
     topics: data.topics?.map((topic: SyllabusTopic) => ({
       ...topic,
-      completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
+      completedAt: safeToDateOrNull(topic.completedAt),
     })) || [],
   } as Syllabus;
 }
@@ -104,7 +126,28 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
 
   const syllabi = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
-    const safeToDate = (ts: any) => (ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date());
+    const safeToDate = (ts: any): Date => {
+      if (!ts) return new Date();
+      if (typeof ts.toDate === 'function') {
+        try { return ts.toDate(); } catch { return new Date(); }
+      }
+      if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+        return new Date(ts.seconds * 1000);
+      }
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? new Date() : d;
+    };
+    const safeToDateOrNull = (ts: any): Date | null => {
+      if (!ts) return null;
+      if (typeof ts.toDate === 'function') {
+        try { return ts.toDate(); } catch { return null; }
+      }
+      if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+        return new Date(ts.seconds * 1000);
+      }
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? null : d;
+    };
     return {
       id: docSnap.id,
       ...data,
@@ -114,7 +157,7 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
       updatedAt: safeToDate(data.updatedAt),
       topics: data.topics?.map((topic: SyllabusTopic) => ({
         ...topic,
-        completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
+        completedAt: safeToDateOrNull(topic.completedAt),
       })) || [],
     } as Syllabus;
   });
@@ -141,13 +184,24 @@ export async function getSyllabiBySubject(
   const syllabi = snapshot.docs
     .map((docSnap) => {
       const data = docSnap.data();
+      const safeToDate = (ts: any): Date => {
+        if (!ts) return new Date();
+        if (typeof ts.toDate === 'function') {
+          try { return ts.toDate(); } catch { return new Date(); }
+        }
+        if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+          return new Date(ts.seconds * 1000);
+        }
+        const d = new Date(ts);
+        return isNaN(d.getTime()) ? new Date() : d;
+      };
       return {
         id: docSnap.id,
         ...data,
-        startDate: data.startDate?.toDate() || new Date(),
-        endDate: data.endDate?.toDate() || new Date(),
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
+        startDate: safeToDate(data.startDate),
+        endDate: safeToDate(data.endDate),
+        createdAt: safeToDate(data.createdAt),
+        updatedAt: safeToDate(data.updatedAt),
       } as Syllabus;
     })
     .filter(s => s.subjectId === subjectId)

@@ -9,7 +9,7 @@ export interface ProcessDocumentResponse {
 }
 
 export async function processDocument(
-    type: 'subject' | 'syllabus',
+    type: 'subject' | 'syllabus' | 'exam-routine',
     file?: File | null,
     text?: string
 ): Promise<any> {

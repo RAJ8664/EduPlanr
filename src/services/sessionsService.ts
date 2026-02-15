@@ -64,15 +64,27 @@ export async function getUserSessions(userId: string): Promise<StudySession[]> {
 
   const snapshot = await getDocs(q);
 
+  const safeToDate = (ts: any): Date => {
+    if (!ts) return new Date();
+    if (typeof ts.toDate === 'function') {
+      try { return ts.toDate(); } catch { return new Date(); }
+    }
+    if (typeof ts === 'object' && typeof ts.seconds === 'number') {
+      return new Date(ts.seconds * 1000);
+    }
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   const sessions = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
       ...data,
-      startTime: data.startTime?.toDate() || new Date(),
-      endTime: data.endTime?.toDate() || new Date(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
+      startTime: safeToDate(data.startTime),
+      endTime: safeToDate(data.endTime),
+      createdAt: safeToDate(data.createdAt),
+      updatedAt: safeToDate(data.updatedAt),
     } as StudySession;
   });
 

@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
         const text = formData.get('text') as string | null;
-        const type = formData.get('type') as 'subject' | 'syllabus';
+        const type = formData.get('type') as 'subject' | 'syllabus' | 'exam-routine';
 
         if (!type || (!file && !text)) {
             return NextResponse.json(
@@ -93,6 +93,24 @@ export async function POST(request: NextRequest) {
 
         Text to analyze:
         ${extractedText.slice(0, 25000)} // Limit context window
+      `;
+        } else if (type === 'exam-routine') {
+            prompt = `
+        Analyze the following text and extract ALL exam/test entries mentioned.
+        Return ONLY a JSON object with an "exams" field containing an array of exam objects.
+        Each exam object should have:
+        - subjectName: (string) The subject or course name for this exam
+        - date: (string) The exam date in YYYY-MM-DD format. If only a relative date like "next Monday" is given, make your best guess.
+        - startTime: (string) Start time in HH:mm (24-hour) format. Default to "09:00" if not mentioned.
+        - endTime: (string) End time in HH:mm (24-hour) format. Default to "12:00" if not mentioned.
+        - venue: (string) Exam venue/room if mentioned, otherwise empty string
+        - notes: (string) Any additional notes like "open book", "calculator allowed", etc. Empty string if none.
+
+        Extract every exam mentioned. If dates are ambiguous, use the current year 2026.
+        If a time range is given like "10am-1pm", convert to 24-hour format.
+
+        Text to analyze:
+        ${extractedText.slice(0, 25000)}
       `;
         }
 

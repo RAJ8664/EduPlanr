@@ -21,6 +21,7 @@ import {
   ChevronRightIcon,
   SparklesIcon,
   ClockIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store';
@@ -39,6 +40,7 @@ const navigation: NavItem[] = [
   { name: 'Syllabus', href: '/syllabus', icon: BookOpenIcon },
   { name: 'Subjects', href: '/subjects', icon: AcademicCapIcon },
   { name: 'Routine', href: '/routine', icon: ClockIcon },
+  { name: 'Exams', href: '/exams', icon: ClipboardDocumentListIcon },
   { name: 'Smart Tutor', href: '/tutor', icon: SparklesIcon },
 ];
 
