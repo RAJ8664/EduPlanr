@@ -35,6 +35,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile, UserPreferences } from "@/types";
+import { v4 as uuidv4 } from "uuid";
 
 const USER_SCOPED_COLLECTIONS = [
   "subjects",
@@ -218,7 +219,7 @@ export function subscribeToAuthChanges(
 ): () => void {
   if (!auth) {
     // Return no-op function if Firebase not initialized
-    return () => {};
+    return () => { };
   }
 
   return onAuthStateChanged(auth, callback);
@@ -331,6 +332,37 @@ export async function updateUserPreferences(
       { merge: true },
     );
   }
+}
+
+/**
+ * Generate a new sync token for Nexora integration
+ */
+export async function generateSyncToken(uid: string): Promise<string> {
+  if (!db) throw new Error("Firebase not initialized");
+
+  // Generate a reliable UUID
+  const token = uuidv4();
+
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    syncToken: token,
+    updatedAt: serverTimestamp(),
+  });
+
+  return token;
+}
+
+/**
+ * Revoke the existing sync token for Nexora integration
+ */
+export async function revokeSyncToken(uid: string): Promise<void> {
+  if (!db) throw new Error("Firebase not initialized");
+
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    syncToken: null,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**
