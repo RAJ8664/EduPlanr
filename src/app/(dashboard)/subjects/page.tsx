@@ -813,15 +813,15 @@ export default function SubjectsPage() {
                                                     ? (subject as Record<string, unknown>)
                                                     : {};
                                                 return {
-                                                name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : 'Untitled',
-                                                description: typeof parsed.description === 'string' ? parsed.description : '',
-                                                creditHours: typeof parsed.creditHours === 'number' ? parsed.creditHours : 3,
-                                                color: typeof parsed.color === 'string' && parsed.color.trim()
-                                                    ? parsed.color
-                                                    : SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)].value,
-                                                icon: typeof parsed.icon === 'string' && parsed.icon.trim() ? parsed.icon : '📚',
-                                                selected: true,
-                                            } satisfies ExtractedSubject;
+                                                    name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : 'Untitled',
+                                                    description: typeof parsed.description === 'string' ? parsed.description : '',
+                                                    creditHours: typeof parsed.creditHours === 'number' ? parsed.creditHours : 3,
+                                                    color: typeof parsed.color === 'string' && parsed.color.trim()
+                                                        ? parsed.color
+                                                        : SUBJECT_COLORS[Math.floor(Math.random() * SUBJECT_COLORS.length)].value,
+                                                    icon: typeof parsed.icon === 'string' && parsed.icon.trim() ? parsed.icon : '📚',
+                                                    selected: true,
+                                                } satisfies ExtractedSubject;
                                             });
                                             setAiExtractedSubjects(extracted);
                                             setModalMode('preview');
