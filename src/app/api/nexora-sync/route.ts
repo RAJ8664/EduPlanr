@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,17 +27,10 @@ export async function POST(req: Request) {
             );
         }
 
-        if (!db) {
-            return NextResponse.json(
-                { success: false, error: 'Database not initialized' },
-                { status: 500, headers: corsHeaders }
-            );
-        }
-
-        // 2. Query Firestore users collection by email using Web SDK
-        const usersRef = collection(db, 'users');
-        const qUsers = query(usersRef, where('email', '==', email), limit(1));
-        const userSnapshot = await getDocs(qUsers);
+        // 2. Query Firestore users collection by email using Admin SDK
+        const adminDb = getAdminDb();
+        const usersRef = adminDb.collection('users');
+        const userSnapshot = await usersRef.where('email', '==', email).limit(1).get();
 
         if (userSnapshot.empty) {
             return NextResponse.json(
@@ -64,14 +56,17 @@ export async function POST(req: Request) {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const sessionsRef = collection(db, 'sessions');
-        const qSessions = query(sessionsRef, where('userId', '==', userId), where('startTime', '>=', thirtyDaysAgo));
-        const sessionsSnapshot = await getDocs(qSessions);
+        const sessionsRef = adminDb.collection('sessions');
+        const sessionsSnapshot = await sessionsRef
+            .where('userId', '==', userId)
+            .where('startTime', '>=', thirtyDaysAgo)
+            .get();
 
         // 5. Fetch all tasks for the user
-        const tasksRef = collection(db, 'tasks');
-        const qTasks = query(tasksRef, where('userId', '==', userId));
-        const tasksSnapshot = await getDocs(qTasks);
+        const tasksRef = adminDb.collection('tasks');
+        const tasksSnapshot = await tasksRef
+            .where('userId', '==', userId)
+            .get();
 
         // 6. Map data to the required Nexora schema format
         const events = sessionsSnapshot.docs.map((doc: any) => {
