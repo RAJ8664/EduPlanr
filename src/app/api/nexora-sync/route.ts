@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
+import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,10 +28,17 @@ export async function POST(req: Request) {
             );
         }
 
-        // 2. Query Firestore users collection by email
-        const adminDb = getAdminDb();
-        const usersRef = adminDb.collection('users');
-        const userSnapshot = await usersRef.where('email', '==', email).limit(1).get();
+        if (!db) {
+            return NextResponse.json(
+                { success: false, error: 'Database not initialized' },
+                { status: 500, headers: corsHeaders }
+            );
+        }
+
+        // 2. Query Firestore users collection by email using Web SDK
+        const usersRef = collection(db, 'users');
+        const qUsers = query(usersRef, where('email', '==', email), limit(1));
+        const userSnapshot = await getDocs(qUsers);
 
         if (userSnapshot.empty) {
             return NextResponse.json(
@@ -56,21 +64,14 @@ export async function POST(req: Request) {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        // We cannot reliably sort by startTime on the backend without a composite index if we also filter by userId.
-        // We will fetch by userId and do memory filtering if necessary, or just query if indexes allow.
-        // The requirement says "belonging to this user's userId (startTime >= 30 days ago)".
-        // Assuming simple querying capability:
-        const sessionsRef = adminDb.collection('sessions');
-        const sessionsSnapshot = await sessionsRef
-            .where('userId', '==', userId)
-            .where('startTime', '>=', thirtyDaysAgo)
-            .get();
+        const sessionsRef = collection(db, 'sessions');
+        const qSessions = query(sessionsRef, where('userId', '==', userId), where('startTime', '>=', thirtyDaysAgo));
+        const sessionsSnapshot = await getDocs(qSessions);
 
         // 5. Fetch all tasks for the user
-        const tasksRef = adminDb.collection('tasks');
-        const tasksSnapshot = await tasksRef
-            .where('userId', '==', userId)
-            .get();
+        const tasksRef = collection(db, 'tasks');
+        const qTasks = query(tasksRef, where('userId', '==', userId));
+        const tasksSnapshot = await getDocs(qTasks);
 
         // 6. Map data to the required Nexora schema format
         const events = sessionsSnapshot.docs.map((doc: any) => {
