@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
 import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 const SYSTEM_PROMPT = `You are EduPlanr's Smart Tutor, an intelligent and friendly study assistant. Your role is to help students learn effectively.
 
@@ -94,8 +95,32 @@ export async function POST(request: NextRequest) {
       history = history.slice(1);
     }
 
+    // Fetch Nexora Context
+    let nexoraContextStr = '';
+    try {
+      const adminDb = getAdminDb();
+      const contextDoc = await adminDb.collection('nexoraContext').doc(apiUser.uid).get();
+      if (contextDoc.exists) {
+        const data = contextDoc.data();
+        if (data && (data.wellness || (data.habits && data.habits.length > 0))) {
+          nexoraContextStr = `\n\n=== USER LIVE WELLNESS CONTEXT (from Nexora) ===\n`;
+          if (data.wellness) {
+            nexoraContextStr += `- Energy: ${data.wellness.energy || 'Unknown'}\n`;
+            if (data.wellness.sleep?.duration) nexoraContextStr += `- Sleep: ${data.wellness.sleep.duration}h (Quality: ${data.wellness.sleep.quality || 'N/A'}/10)\n`;
+            if (data.wellness.stress?.level) nexoraContextStr += `- Stress: ${data.wellness.stress.level}/10\n`;
+          }
+          if (data.habits?.length > 0) {
+            nexoraContextStr += `- Active Study Habits: ${data.habits.slice(0, 3).map((h: any) => h.name).join(', ')}\n`;
+          }
+          nexoraContextStr += `Please use this physical/mental state context to adjust your tone. If they are tired or stressed, recommend shorter sessions or breaks.`;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch Nexora context for AI:', e);
+    }
+
     // Construct the final message with system prompt injection
-    const finalUserMessage = `${SYSTEM_PROMPT}\n\nStudent's Question: ${userMessage}`;
+    const finalUserMessage = `${SYSTEM_PROMPT}${nexoraContextStr}\n\nStudent's Question: ${userMessage}`;
 
     // Try models in sequence
     let lastError = null;

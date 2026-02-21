@@ -46,6 +46,7 @@ import { auth } from '@/lib/firebase';
 import { requestBrowserNotificationPermission } from '@/services/notificationsService';
 import type { UserProfile } from '@/types';
 import { NexoraIntegrationCard } from './components/NexoraIntegrationCard';
+import { NexoraSyncMonitor } from './components/NexoraSyncMonitor';
 
 interface SettingSection {
   id: string;
@@ -944,6 +945,7 @@ export default function SettingsPage() {
         return (
           <div className="space-y-6">
             <NexoraIntegrationCard />
+            <NexoraSyncMonitor />
           </div>
         );
 
