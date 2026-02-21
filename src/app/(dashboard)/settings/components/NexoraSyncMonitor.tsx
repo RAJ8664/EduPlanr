@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, limit, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthStore } from '@/store';
-import { Activity, ArrowDownCircle, CheckCircle, Wifi, BookOpen, Clock } from 'lucide-react';
+import { ChartBarIcon, ArrowDownCircleIcon, WifiIcon, BookOpenIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui';
 
 export function NexoraSyncMonitor() {
@@ -13,13 +13,13 @@ export function NexoraSyncMonitor() {
     const [recentUpdates, setRecentUpdates] = useState<number>(0);
 
     useEffect(() => {
-        if (!user?.uid || !profile?.syncToken) return;
+        if (!db || !user?.uid || !profile?.syncToken) return;
 
         const unsubscribe = onSnapshot(
             doc(db, 'nexoraContext', user.uid),
-            (doc) => {
-                if (doc.exists()) {
-                    setContextData(doc.data());
+            (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    setContextData(docSnapshot.data());
                     // Flash animation when data arrives
                     setRecentUpdates(prev => prev + 1);
                     setTimeout(() => setRecentUpdates(0), 3000);
@@ -53,7 +53,7 @@ export function NexoraSyncMonitor() {
             <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-neon-cyan" />
+                        <ChartBarIcon className="w-5 h-5 text-neon-cyan" />
                         Live Sync Connection
                     </h3>
                     <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
@@ -68,14 +68,14 @@ export function NexoraSyncMonitor() {
                 <div className="flex flex-col md:flex-row gap-6 items-center justify-between p-4 bg-dark-800/80 rounded-xl border border-dark-600/50">
                     <div className="flex flex-col items-center gap-2">
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-cyan-500/20 ring-2 ring-cyan-400/50">
-                            <Wifi className="w-6 h-6 text-cyan-400" />
+                            <WifiIcon className="w-6 h-6 text-cyan-400" />
                         </div>
                         <span className="text-xs text-gray-400 font-medium">Nexora Hub</span>
                     </div>
 
                     <div className="flex-1 flex flex-col items-center justify-center min-w-[150px]">
                         <div className="flex items-center gap-2 text-purples-400 w-full justify-center">
-                            <ArrowDownCircle className={`w-4 h-4 text-purple-400 ${recentUpdates > 0 ? 'animate-bounce' : ''}`} />
+                            <ArrowDownCircleIcon className={`w-4 h-4 text-purple-400 ${recentUpdates > 0 ? 'animate-bounce' : ''}`} />
                             <div className="flex gap-1">
                                 {[0, 1, 2, 3, 4, 5].map(i => (
                                     <div
@@ -93,7 +93,7 @@ export function NexoraSyncMonitor() {
 
                     <div className="flex flex-col items-center gap-2">
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-purple-500/20 ring-2 ring-purple-400/30">
-                            <BookOpen className="w-6 h-6 text-purple-400" />
+                            <BookOpenIcon className="w-6 h-6 text-purple-400" />
                         </div>
                         <span className="text-xs text-gray-400 font-medium">EduPlanr</span>
                     </div>
@@ -122,7 +122,7 @@ export function NexoraSyncMonitor() {
                         <div className="p-3 bg-dark-800/50 rounded-lg border border-dark-600/30">
                             <p className="text-xs text-gray-500 mb-1">Last Synced</p>
                             <p className="text-sm font-medium text-white flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-cyan-500" />
+                                <ClockIcon className="w-3 h-3 text-cyan-500" />
                                 {timeAgo(contextData.lastSyncedAt)}
                             </p>
                         </div>
