@@ -120,7 +120,7 @@ export async function POST(req: Request) {
                 const taskRef = adminDb.collection('tasks').doc(update.externalId);
                 const taskDoc = await taskRef.get();
 
-                if (taskDoc.exists()) {
+                if (taskDoc.exists) {
                     const eduplanrStatus = update.status === 'done' ? 'completed' :
                         update.status === 'in-progress' ? 'in-progress' : 'pending';
                     batch.update(taskRef, {
