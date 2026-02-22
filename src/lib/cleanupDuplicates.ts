@@ -16,6 +16,11 @@ export async function cleanupEduPlanrDuplicates() {
         return;
     }
 
+    if (!db) {
+        console.error('Firebase DB is not initialized.');
+        return;
+    }
+
     try {
         const subjectsRef = collection(db, 'subjects');
         const q = query(subjectsRef, where('userId', '==', userId));
