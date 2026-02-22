@@ -159,6 +159,7 @@ export async function POST(req: Request) {
                 cgpa: data.cgpa || null,
                 creditHours: data.creditHours || 0,
                 semesterId: data.semesterId || null,
+                source: data.source || 'eduplanr',
                 topics: mappedTopics,
             };
         });
