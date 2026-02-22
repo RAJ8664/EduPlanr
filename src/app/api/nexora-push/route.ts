@@ -109,6 +109,33 @@ export async function POST(req: Request) {
         // Write the context update
         await contextRef.set(contextUpdate, { merge: true });
 
+        // 3e. Sync Nexora Subjects natively into EduPlanr
+        if (payload.subjects && Array.isArray(payload.subjects)) {
+            const batch = adminDb.batch();
+            let subjectCount = 0;
+
+            for (const subject of payload.subjects) {
+                if (!subject.id) continue;
+                // Use Nexora's ID as the document ID in EduPlanr
+                const subjectRef = adminDb.collection('subjects').doc(subject.id);
+                // Attach the userId to the subject so it belongs to the current EduPlanr user
+                const subjectData = {
+                    ...subject,
+                    userId,
+                    source: 'nexora',
+                    updatedAt: now,
+                };
+
+                batch.set(subjectRef, subjectData, { merge: true });
+                subjectCount++;
+            }
+
+            if (subjectCount > 0) {
+                await batch.commit();
+                updatedFields.push(`${subjectCount} subjects`);
+            }
+        }
+
         // 4. Sync task status updates back to EduPlanr's tasks collection
         if (payload.taskUpdates && Array.isArray(payload.taskUpdates)) {
             const batch = adminDb.batch();
