@@ -26,26 +26,31 @@ export async function cleanupEduPlanrDuplicates() {
         const q = query(subjectsRef, where('userId', '==', userId));
         const snapshot = await getDocs(q);
 
-        const subjectsByName = new Map<string, any[]>();
+        const subjectsByExternalId = new Map<string, any[]>();
 
         snapshot.docs.forEach(docSnap => {
             const data = docSnap.data();
+
+            // We only care about deduplicating things synced from Nexora.
+            // A legitimate sync duplicate will have the same original Nexora ID stored somewhere,
+            // or we group them by name ONLY IF they are from nexora.
+            if (data.source !== 'nexora') return;
+
             const name = data.name.trim().toLowerCase();
-            if (!subjectsByName.has(name)) {
-                subjectsByName.set(name, []);
+            if (!subjectsByExternalId.has(name)) {
+                subjectsByExternalId.set(name, []);
             }
-            subjectsByName.get(name)!.push({ id: docSnap.id, ...data, ref: docSnap.ref });
+            subjectsByExternalId.get(name)!.push({ id: docSnap.id, ...data, ref: docSnap.ref });
         });
 
         let deletedCount = 0;
 
-        Array.from(subjectsByName.entries()).forEach(async ([name, duplicates]) => {
+        Array.from(subjectsByExternalId.entries()).forEach(async ([name, duplicates]) => {
             if (duplicates.length > 1) {
-                console.log(`Found ${duplicates.length} instances of "${name}"`);
+                console.log(`Found ${duplicates.length} Nexora-sourced instances of "${name}"`);
 
                 // Keep the one created earliest (assumed original)
                 duplicates.sort((a: any, b: any) => {
-                    // Try to get timestamp, fallback to 0
                     const timeA = a.createdAt?.seconds || (a.createdAt instanceof Date ? a.createdAt.getTime() / 1000 : 0) || 0;
                     const timeB = b.createdAt?.seconds || (b.createdAt instanceof Date ? b.createdAt.getTime() / 1000 : 0) || 0;
                     return timeA - timeB; // ascending
@@ -55,7 +60,6 @@ export async function cleanupEduPlanrDuplicates() {
                 const toDelete = duplicates.slice(1);
 
                 for (const item of toDelete) {
-                    // console.log(`Deleting duplicate subject ID: ${item.id}`);
                     await deleteDoc(item.ref);
                     deletedCount++;
                 }
