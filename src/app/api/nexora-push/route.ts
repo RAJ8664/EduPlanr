@@ -122,6 +122,7 @@ export async function POST(req: Request) {
                 const subjectData = {
                     ...subject,
                     userId,
+                    status: subject.status || 'ongoing',
                     source: 'nexora',
                     updatedAt: now,
                 };

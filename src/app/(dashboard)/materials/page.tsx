@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Badge, Modal, PageHero } from '@/components/ui';
-import { cn, formatSmartDate } from '@/lib/utils';
+import { cn, formatSmartDate, capitalize } from '@/lib/utils';
 import { StudyMaterial, MaterialType, Subject } from '@/types';
 import { useAuthStore } from '@/store';
 import {
@@ -227,7 +227,7 @@ export default function MaterialsPage() {
                 onClick={() => setSelectedType(type)}
                 leftIcon={<config.icon className="w-4 h-4" />}
               >
-                {type.charAt(0).toUpperCase() + type.slice(1)}s
+                {capitalize(type)}s
               </Button>
             );
           })}

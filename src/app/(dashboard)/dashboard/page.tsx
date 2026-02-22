@@ -396,7 +396,7 @@ export default function DashboardPage() {
                       >
                         {subject.status === 'passed' && subject.cgpa
                           ? `${subject.cgpa.toFixed(1)}`
-                          : subject.status.charAt(0).toUpperCase() + subject.status.slice(1)}
+                          : (subject.status || 'ongoing').charAt(0).toUpperCase() + (subject.status || 'ongoing').slice(1)}
                       </Badge>
                     </div>
                   </div>
