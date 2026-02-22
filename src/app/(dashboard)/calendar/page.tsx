@@ -477,59 +477,150 @@ export default function CalendarPage() {
               ))}
             </div>
 
-            {/* Days */}
-            <div className="grid grid-cols-7 gap-1">
-              {days.map((day, index) => {
-                const dayEvents = getEventsForDay(day);
-                const isSelected = selectedDate && isSameDay(day, selectedDate);
-                const isCurrentMonth = isSameMonth(day, currentMonth);
-                const isDayToday = isToday(day);
+            {/* Calendar Weeks */}
+            <div className="flex flex-col gap-1">
+              {Array.from({ length: Math.ceil(days.length / 7) }).map((_, weekIndex) => {
+                const week = days.slice(weekIndex * 7, (weekIndex + 1) * 7);
+
+                const validDays = week.filter(Boolean);
+                if (validDays.length === 0) return null;
+                const weekStartTime = setHours(validDays[0], 0).getTime();
+                const weekEndTime = new Date(validDays[validDays.length - 1]).setHours(23, 59, 59, 999);
+
+                const weekEvents = allCalendarEvents.filter(e => {
+                  const eStart = new Date(e.startTime).getTime();
+                  const eEnd = new Date(e.endTime).getTime();
+                  return eStart <= weekEndTime && eEnd >= weekStartTime;
+                }).sort((a, b) => {
+                  const aStart = new Date(a.startTime).getTime();
+                  const bStart = new Date(b.startTime).getTime();
+                  if (aStart !== bStart) return aStart - bStart;
+                  const aDur = new Date(a.endTime).getTime() - aStart;
+                  const bDur = new Date(b.endTime).getTime() - bStart;
+                  return bDur - aDur;
+                });
+
+                const tracks: CalendarEvent[][] = [];
+                const eventPositions = new Map<string, { track: number, startCol: number, span: number }>();
+
+                weekEvents.forEach(event => {
+                  const eStart = new Date(event.startTime);
+                  const eEnd = new Date(event.endTime);
+
+                  let startCol = 0;
+                  const dayIdx = week.findIndex(d => d && isSameDay(d, eStart));
+                  if (dayIdx !== -1) startCol = dayIdx;
+
+                  let endCol = 6;
+                  const endDayIdx = week.findIndex(d => d && isSameDay(d, eEnd));
+                  if (endDayIdx !== -1) endCol = endDayIdx;
+
+                  const span = endCol - startCol + 1;
+
+                  let trackIdx = 0;
+                  while (true) {
+                    if (!tracks[trackIdx]) tracks[trackIdx] = [];
+                    let overlaps = false;
+                    for (const placed of tracks[trackIdx]) {
+                      const pos = eventPositions.get(placed.id)!;
+                      const placedStart = pos.startCol;
+                      const placedEnd = pos.startCol + pos.span - 1;
+                      const myEnd = startCol + span - 1;
+                      if (!(myEnd < placedStart || startCol > placedEnd)) {
+                        overlaps = true;
+                        break;
+                      }
+                    }
+                    if (!overlaps) {
+                      tracks[trackIdx].push(event);
+                      eventPositions.set(event.id, { track: trackIdx, startCol, span });
+                      break;
+                    }
+                    trackIdx++;
+                  }
+                });
+
+                const trackHeight = 24;
+                const minCellHeight = 90;
+                const totalHeight = Math.max(minCellHeight, 36 + tracks.length * trackHeight);
 
                 return (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedDate(day)}
-                    className={cn(
-                      'relative p-2 min-h-[80px] rounded-xl transition-all text-left',
-                      'hover:bg-dark-700/50',
-                      !isCurrentMonth && 'opacity-40',
-                      isSelected && 'bg-dark-700/50 ring-2 ring-neon-cyan/50',
-                      isDayToday && !isSelected && 'bg-dark-700/30'
-                    )}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: weekIndex * 0.05 }}
+                    key={weekIndex}
+                    className="relative grid grid-cols-7 gap-1"
+                    style={{ minHeight: `${totalHeight}px` }}
                   >
-                    <span className={cn(
-                      'inline-flex items-center justify-center w-7 h-7 rounded-lg text-sm',
-                      isDayToday && 'bg-neon-cyan text-dark-900 font-bold',
-                      !isDayToday && isCurrentMonth && 'text-gray-200',
-                      !isDayToday && !isCurrentMonth && 'text-gray-500'
-                    )}>
-                      {format(day, 'd')}
-                    </span>
+                    {/* Day Cells */}
+                    {week.map((day, index) => {
+                      if (!day) return <div key={index} className="rounded-xl bg-dark-800/10" style={{ minHeight: `${totalHeight}px` }} />;
 
-                    {/* Event previews */}
-                    {dayEvents.length > 0 && (
-                      <div className="mt-1 space-y-1">
-                        {dayEvents.slice(0, 2).map((event) => (
-                          <div
-                            key={event.id}
-                            className={cn(
-                              'text-[10px] px-1.5 py-0.5 rounded-md border truncate',
-                              event.kind === 'exam'
-                                ? 'bg-red-500/15 text-red-300 border-red-500/30'
-                                : sessionPillColors[event.sessionType || 'study'],
-                              event.kind === 'session' && event.isCompleted && 'opacity-50'
-                            )}
-                          >
-                            {isValid(event.startTime) ? format(event.startTime, 'HH:mm') : '--:--'}{' '}
-                            {event.title}
-                          </div>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <p className="text-[10px] text-gray-500 pl-1">+{dayEvents.length - 2} more</p>
-                        )}
-                      </div>
-                    )}
-                  </button>
+                      const isSelected = selectedDate && isSameDay(day, selectedDate);
+                      const isCurrentMonth = isSameMonth(day, currentMonth);
+                      const isDayToday = isToday(day);
+
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedDate(day)}
+                          className={cn(
+                            'p-2 rounded-xl transition-all text-left flex flex-col',
+                            'hover:bg-dark-700/50',
+                            !isCurrentMonth && 'opacity-40',
+                            isSelected && 'bg-dark-700/50 ring-2 ring-neon-cyan/50',
+                            isDayToday && !isSelected && 'bg-dark-700/30'
+                          )}
+                          style={{ minHeight: `${totalHeight}px` }}
+                        >
+                          <span className={cn(
+                            'inline-flex items-center justify-center w-7 h-7 rounded-lg text-sm z-10 relative mb-1',
+                            isDayToday && 'bg-neon-cyan text-dark-900 font-bold',
+                            !isDayToday && isCurrentMonth && 'text-gray-200',
+                            !isDayToday && !isCurrentMonth && 'text-gray-500'
+                          )}>
+                            {format(day, 'd')}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Spanning Event Blocks */}
+                    {weekEvents.map(event => {
+                      const pos = eventPositions.get(event.id)!;
+                      const blockColorClass = event.kind === 'exam'
+                        ? 'bg-red-500/80 text-white border-red-500'
+                        : sessionPillColors[event.sessionType || 'study'].replace('/15', '/40').replace(/text-\S+/, 'text-white border border-white/10');
+
+                      // Slightly dim completed sessions
+                      const completedClass = (event.kind === 'session' && event.isCompleted) ? 'opacity-40 grayscale' : '';
+
+                      return (
+                        <motion.div
+                          layoutId={`event-${event.id}`}
+                          key={`${event.id}-${weekIndex}`}
+                          className={cn(
+                            'absolute h-[20px] rounded px-1.5 text-[10px] font-medium truncate flex items-center shadow-sm cursor-pointer transition-transform hover:scale-[1.02] z-20 text-white',
+                            blockColorClass,
+                            completedClass,
+                            'backdrop-blur-sm shadow-black/20'
+                          )}
+                          style={{
+                            left: `calc(${(pos.startCol / 7) * 100}% + 4px)`,
+                            width: `calc(${(pos.span / 7) * 100}% - 8px)`,
+                            top: `${34 + pos.track * trackHeight}px`
+                          }}
+                        >
+                          <span className="truncate drop-shadow-md">
+                            {(pos.startCol === week.findIndex(d => d && isSameDay(d, new Date(event.startTime))))
+                              ? `${isValid(event.startTime) ? format(event.startTime, 'HH:mm') : '--:--'} ${event.title}`
+                              : event.title}
+                          </span>
+                        </motion.div>
+                      );
+                    })}
+                  </motion.div>
                 );
               })}
             </div>
