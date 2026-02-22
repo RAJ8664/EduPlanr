@@ -129,6 +129,25 @@ export async function POST(req: Request) {
 
         const subjects = subjectsSnapshot.docs.map((doc: any) => {
             const data = doc.data();
+
+            // Find syllabus for this subject
+            const matchingSyllabus = syllabiSnapshot.docs.find(
+                (s: any) => s.data().subjectId === doc.id
+            );
+            const syllabusData = matchingSyllabus ? matchingSyllabus.data() : null;
+
+            // Map EduPlanr SyllabusTopic into Nexora Topic format
+            const mappedTopics = syllabusData && syllabusData.topics ? syllabusData.topics.map((t: any) => ({
+                id: `topic-${t.id || Math.random()}`,
+                name: t.title,
+                description: t.description || '',
+                masteryLevel: t.isCompleted ? 100 : (t.status === 'in-progress' ? 50 : 0),
+                studyTime: t.estimatedHours ? t.estimatedHours * 60 : 0,
+                resources: [],
+                notes: t.notes ? [t.notes] : [],
+                weakAreas: []
+            })) : [];
+
             return {
                 id: doc.id,
                 name: data.name,
@@ -140,6 +159,7 @@ export async function POST(req: Request) {
                 cgpa: data.cgpa || null,
                 creditHours: data.creditHours || 0,
                 semesterId: data.semesterId || null,
+                topics: mappedTopics,
             };
         });
 
