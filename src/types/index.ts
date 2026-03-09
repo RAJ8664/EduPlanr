@@ -6,7 +6,6 @@
 // User profile stored in Firestore
 export interface UserProfile {
   uid: string;
-  syncToken?: string | null;
   email: string | null;
   displayName: string | null;
   photoURL: string | null;

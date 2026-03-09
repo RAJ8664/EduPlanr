@@ -76,14 +76,6 @@ export async function createSubject(
             updatedAt: new Date(),
         };
 
-        // Push to Nexora via internal API route
-        // We do this asynchronously without waiting to avoid blocking EduPlanr
-        fetch('/api/nexora-webhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'push', subject: newSubject, userId })
-        }).catch(console.error);
-
         return newSubject;
     } catch (error) {
         console.error('Error creating subject in Firestore:', error);
@@ -188,12 +180,7 @@ export async function updateSubject(
 
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-        const fullSubject = { id: docSnap.id, ...docSnap.data() } as Subject;
-        fetch('/api/nexora-webhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'push', subject: fullSubject, userId: fullSubject.userId })
-        }).catch(console.error);
+        return { id: docSnap.id, ...docSnap.data() } as Subject;
     }
 }
 
@@ -224,16 +211,6 @@ export async function updateSubjectStatus(
     }
 
     await updateDoc(docRef, updates);
-
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        const fullSubject = { id: docSnap.id, ...docSnap.data() } as Subject;
-        fetch('/api/nexora-webhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'push', subject: fullSubject, userId: fullSubject.userId })
-        }).catch(console.error);
-    }
 }
 
 /**
@@ -251,16 +228,6 @@ export async function updateSubjectProgress(
         progress: Math.min(100, Math.max(0, progress)),
         updatedAt: serverTimestamp(),
     });
-
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        const fullSubject = { id: docSnap.id, ...docSnap.data() } as Subject;
-        fetch('/api/nexora-webhook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'push', subject: fullSubject, userId: fullSubject.userId })
-        }).catch(console.error);
-    }
 }
 
 /**
@@ -271,12 +238,6 @@ export async function deleteSubject(subjectId: string): Promise<void> {
 
     const docRef = doc(db, COLLECTION_NAME, subjectId);
     await deleteDoc(docRef);
-
-    fetch('/api/nexora-webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', subjectId })
-    }).catch(console.error);
 }
 
 /**

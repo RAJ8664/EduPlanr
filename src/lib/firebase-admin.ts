@@ -23,33 +23,4 @@ export function getAdminDb() {
     return admin.firestore();
 }
 
-// Initialize a secondary Firebase Admin SDK instance for writing to Nexora
-export function getNexoraAdminDb() {
-    const NEXORA_APP_NAME = 'nexora-bridge';
 
-    // Check if the app is already initialized
-    const existingApp = admin.apps.find(app => app?.name === NEXORA_APP_NAME);
-    if (existingApp) {
-        return admin.firestore(existingApp);
-    }
-
-    const clientEmail = process.env.NEXORA_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.NEXORA_ADMIN_PRIVATE_KEY;
-    const projectId = process.env.NEXORA_ADMIN_PROJECT_ID;
-
-    // Fail gracefully in environments without credentials (like local dev without env)
-    if (!clientEmail || !privateKey || !projectId) {
-        console.warn(`NEXORA_ADMIN_CLIENT_EMAIL, NEXORA_ADMIN_PRIVATE_KEY, or NEXORA_ADMIN_PROJECT_ID is missing! Cross-project write will fail.`);
-        throw new Error('Nexora Admin SDK is not properly configured.');
-    }
-
-    const app = admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: projectId,
-            clientEmail: clientEmail,
-            privateKey: privateKey.replace(/\\n/g, '\n'),
-        }),
-    }, NEXORA_APP_NAME);
-
-    return admin.firestore(app);
-}

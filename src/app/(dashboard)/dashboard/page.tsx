@@ -28,7 +28,6 @@ import { formatTimer, getGreeting } from '@/lib/utils';
 import { getUserSubjects, getSubjectStats } from '@/services/subjectsService';
 import { getUserSyllabi, calculateProgress } from '@/services/syllabusService';
 import { Subject, Syllabus } from '@/types';
-import '@/lib/cleanupDuplicates';
 
 // Stats interface
 interface DashboardStats {

@@ -20,7 +20,6 @@ import {
   ComputerDesktopIcon,
   ArrowRightOnRectangleIcon,
   TrashIcon,
-  LinkIcon,
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, Button, Input, Badge, Avatar, PageHero } from '@/components/ui';
 import { cn, parseErrorMessage } from '@/lib/utils';
@@ -45,8 +44,6 @@ import {
 import { auth } from '@/lib/firebase';
 import { requestBrowserNotificationPermission } from '@/services/notificationsService';
 import type { UserProfile } from '@/types';
-import { NexoraIntegrationCard } from './components/NexoraIntegrationCard';
-import { NexoraSyncMonitor } from './components/NexoraSyncMonitor';
 
 interface SettingSection {
   id: string;
@@ -174,12 +171,7 @@ const settingSections: SettingSection[] = [
     description: 'Manage your security settings',
     icon: ShieldCheckIcon,
   },
-  {
-    id: 'integrations',
-    title: 'Integrations',
-    description: 'Connect with external apps like Nexora',
-    icon: LinkIcon,
-  },
+
 ];
 
 export default function SettingsPage() {
@@ -941,13 +933,7 @@ export default function SettingsPage() {
           </div>
         );
 
-      case 'integrations':
-        return (
-          <div className="space-y-6">
-            <NexoraIntegrationCard />
-            <NexoraSyncMonitor />
-          </div>
-        );
+
 
       default:
         return null;
