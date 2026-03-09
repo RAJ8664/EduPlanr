@@ -177,11 +177,6 @@ export async function updateSubject(
         ...updates,
         updatedAt: serverTimestamp(),
     });
-
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Subject;
-    }
 }
 
 /**
