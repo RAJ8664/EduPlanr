@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -77,6 +77,7 @@ export default function SubjectsPage() {
 
     const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
     const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+    const hasAutoExpanded = useRef(false);
     const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
     const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
     const [syllabi, setSyllabi] = useState<Record<string, { topics: SyllabusTopic[]; id: string }>>({});
@@ -126,8 +127,9 @@ export default function SubjectsPage() {
             const userSemesters = await initializeUserSemesters(user.uid);
             setSemesters(userSemesters);
 
-            // Auto-expand first semester
-            if (userSemesters.length > 0 && !expandedSemester) {
+            // Auto-expand first semester only once on initial load
+            if (userSemesters.length > 0 && !hasAutoExpanded.current) {
+                hasAutoExpanded.current = true;
                 setExpandedSemester(userSemesters[0].id);
             }
 
@@ -148,7 +150,7 @@ export default function SubjectsPage() {
         } finally {
             setLoading(false);
         }
-    }, [user?.uid, setLoading, setSemesters, setSubjects, expandedSemester]);
+    }, [user?.uid, setLoading, setSemesters, setSubjects]);
 
     useEffect(() => {
         fetchData();
