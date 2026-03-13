@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ApiAuthError, requireApiUser } from '@/lib/serverAuth';
 import { ApiRateLimitError, enforceRateLimit } from '@/lib/serverRateLimit';
-import { getAdminDb } from '@/lib/firebase-admin';
 
 const SYSTEM_PROMPT = `You are EduPlanr's Smart Tutor, an intelligent and friendly study assistant. Your role is to help students learn effectively.
 
@@ -31,8 +30,17 @@ You can help with:
 
 Remember: You're here to empower students to learn, not just give answers. Guide them to understanding.`;
 
-// List of models to try in order of preference (Verified Jan 2026)
-const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash"];
+// List of models to try in order of preference (Verified Mar 2026)
+const MODELS_TO_TRY = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
+
+const MAX_OUTPUT_TOKENS = 2048;
+const MAX_CONTINUATIONS = 2;
+
+function didHitTokenLimit(response: { candidates?: Array<{ finishReason?: unknown }> } | null | undefined): boolean {
+  const finishReason = response?.candidates?.[0]?.finishReason;
+  if (typeof finishReason !== 'string') return false;
+  return finishReason.toUpperCase().includes('MAX_TOKENS');
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -95,30 +103,48 @@ export async function POST(request: NextRequest) {
       history = history.slice(1);
     }
 
-    // Construct the final message with system prompt injection
-    const finalUserMessage = `${SYSTEM_PROMPT}\n\nStudent's Question: ${userMessage}`;
-
     // Try models in sequence
     let lastError = null;
 
     for (const modelName of MODELS_TO_TRY) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_PROMPT,
+        });
 
         const chat = model.startChat({
           history: history,
           generationConfig: {
-            maxOutputTokens: 1000,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
             temperature: 0.7,
           },
         });
 
-        const result = await chat.sendMessage(finalUserMessage);
-        const response = await result.response;
-        const content = response.text();
+        const firstResult = await chat.sendMessage(userMessage);
+        const firstResponse = await firstResult.response;
+        let fullContent = firstResponse.text();
+
+        let continuationCount = 0;
+        let currentResponse = firstResponse;
+
+        while (didHitTokenLimit(currentResponse) && continuationCount < MAX_CONTINUATIONS) {
+          const continuationResult = await chat.sendMessage(
+            'Continue exactly from where you stopped. Do not repeat earlier text. Keep the same structure and complete the answer.'
+          );
+          currentResponse = await continuationResult.response;
+          const continuationText = currentResponse.text();
+
+          if (!continuationText.trim()) {
+            break;
+          }
+
+          fullContent = `${fullContent}\n\n${continuationText}`;
+          continuationCount += 1;
+        }
 
         // If successful, return immediately
-        return NextResponse.json({ content });
+        return NextResponse.json({ content: fullContent });
 
       } catch (error: unknown) {
         lastError = error;
